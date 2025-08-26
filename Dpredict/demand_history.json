@@ -1,0 +1,24 @@
+{
+  "records": [
+    {
+      "district": "Bara",
+      "year": 5,
+      "demand_mld": 0.02
+    },
+    {
+      "district": "Chitwan",
+      "year": 2020,
+      "demand_mld": 0.03
+    },
+    {
+      "district": "Bara",
+      "year": 2020,
+      "demand_mld": 12.0
+    },
+    {
+      "district": "Banke",
+      "year": 2013,
+      "demand_mld": 0.02
+    }
+  ]
+}

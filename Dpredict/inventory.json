@@ -1,0 +1,12 @@
+{
+  "items": {
+    "sdas": {
+      "stock_kg": 12.0,
+      "sold_kg": 0.0
+    },
+    "rice": {
+      "stock_kg": 50.0,
+      "sold_kg": 0.0
+    }
+  }
+}

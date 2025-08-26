@@ -1,230 +1,213 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nepal Drought Planner</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <style>
-    :root { --bg:#0a192f; --card:#0f2440; --text:#e6f1ff; --muted:#a8b2d1; --accent:#64ffda; }
-    *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,Segoe UI,Arial;background:var(--bg);color:var(--text)}
-    .wrap{max-width:1150px;margin:32px auto;padding:0 16px}
-    .grid{display:grid;gap:16px}
-    .two{grid-template-columns:repeat(2,1fr)} .three{grid-template-columns:repeat(3,1fr)}
-    .card{background:var(--card);padding:16px;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
-    h1{font-weight:700;margin:0 0 8px} h2{margin:.2rem 0 0.8rem}
-    button,input,select{padding:10px 12px;border-radius:10px;border:1px solid #253a59;background:#0e1b2e;color:var(--text)}
-    button{cursor:pointer}
-    .badge{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:600}
-    .low{background:#123e2a;color:#a8f8d0} .med{background:#3b2d0f;color:#ffd98a} .high{background:#3e1212;color:#ffb3b3}
-    .alert{padding:12px;border-radius:12px}
-    .ok{background:#113323;color:#9ef0c0} .warn{background:#332311;color:#ffd98a} .crit{background:#331111;color:#ffb3b3}
-    table{width:100%;border-collapse:collapse;font-size:14px} th,td{padding:8px;border-bottom:1px solid #1e3354}
-    .footer{margin:24px 0;color:var(--muted);font-size:12px}
-    .row{display:flex;gap:8px;flex-wrap:wrap}
-    .right{float:right}
-    textarea{width:100%;min-height:140px}
-    img{max-width:100%;border-radius:12px;display:block}
-    details[open] summary::marker{content:""} details summary{cursor:pointer; list-style:none}
-    .pill{padding:6px 10px;border-radius:999px;border:1px solid #2a4166}
-    .status-good{background:#123e2a;color:#a8f8d0}
-    .status-bad{background:#3e1212;color:#ffb3b3}
+    body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; background: #f4f4f4; }
+    h1, h2 { color: #203047; }
+    h1 { text-align: center; }
+    .section { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .section h2 { margin-top: 0; }
+    button { background: #203047; color: white; border: none; padding: 8px 16px; cursor: pointer; border-radius: 4px; }
+    button:hover { background: #2a4060; }
+    input, select, textarea { padding: 6px; margin: 5px; border: 1px solid #ccc; border-radius: 4px; }
+    textarea { width: 100%; height: 100px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background: #203047; color: white; }
+    .Low { background: #7fd8be; color: black; padding: 2px 6px; border-radius: 4px; }
+    .Medium { background: #ffd166; color: black; padding: 2px 6px; border-radius: 4px; }
+    .High { background: #ef476f; color: white; padding: 2px 6px; border-radius: 4px; }
+    .alert-ok { color: green; }
+    .alert-warn { color: #d97706; }
+    #mapImg { max-width: 100%; height: auto; margin-top: 10px; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>🇳🇵 Nepal Drought Planner — CSV + Maps + Demand/Supply</h1>
+  <h1>Nepal Drought Planner</h1>
 
-    <!-- Tips & Awareness (open by default) -->
-    <div class="card">
-      <details open>
-        <summary><h2 style="display:inline">💧 Water-Saving Tips & Awareness</h2></summary>
-        <ul>
-          <li>Fix leaks in taps and pipes; even small drips waste thousands of liters yearly.</li>
-          <li>Irrigate in early morning/evening to reduce evaporation; prefer drip/sprinkler over flood.</li>
-          <li>Mulch soil (straw/leaves/plastic) to retain moisture and cut irrigation by 20–30%.</li>
-          <li>Harvest rooftop rainwater; use ponds/tanks for supplemental irrigation.</li>
-          <li>Use drought-tolerant varieties and adjust planting windows to monsoon timing.</li>
-          <li>Reuse greywater (e.g., from washing) for gardening where safe.</li>
-          <li>Community: schedule water turns, protect recharge zones, and avoid over-pumping groundwater.</li>
-        </ul>
-        <button id="moreTips">More tips with AI</button>
-        <textarea id="tipsOut" placeholder="Extra tips will appear here..." style="margin-top:8px"></textarea>
-        <small class="footer">Extra tips use Gemini if API key is configured on the backend.</small>
-      </details>
+  <div class="section">
+    <h2>Current Status</h2>
+    <div id="status">
+      Worst Risk (latest): <span id="riskBadge">-</span><br>
+      Average Supply/Demand Ratio: <span id="avgRatio">-</span><br>
+      Latest Date: <span id="date">-</span><br>
+      <span id="alertBox">No data yet.</span>
     </div>
+    <div id="irrigationBox"></div>
+    <div id="climateInfo" style="display: none;"></div>
+  </div>
 
-    <div class="grid two">
-      <div class="card">
-        <h2>Upload Drought CSV</h2>
-        <p>Required headers:<br>
-          <code>Year,Month,District,Rainfall_mm,SoilMoisture,Temperature_C,Humidity_%,NDVI,Evapotranspiration_mm,GroundwaterLevel_m,Drought_Index,Crop_Yield_Loss_%</code>
-        </p>
-        <div class="row">
-          <input type="file" id="csv" accept=".csv"/>
-          <button id="uploadBtn">Upload & Analyze</button>
-        </div>
-        <div id="uploadStatus" style="margin-top:10px;color:var(--muted)"></div>
-      </div>
+  <div class="section">
+    <h2>Upload Drought CSV</h2>
+    <input type="file" id="csvFile" accept=".csv">
+    <button id="uploadBtn">Upload</button>
+    <div id="uploadStatus"></div>
+  </div>
 
-      <div class="card">
-        <h2>Current Status</h2>
-        <div id="status">
-          <div>Worst Risk (latest): <span id="riskBadge" class="badge">-</span></div>
-          <div>Average Supply/Demand Ratio: <b id="avgRatio">-</b></div>
-          <div>Latest Date: <span id="date">-</span></div>
-        </div>
-        <div id="alertBox" class="alert" style="margin-top:10px">No data yet.</div>
-      </div>
+  <div class="section">
+    <h2>Drought Risk Map</h2>
+    <select id="districtSel"></select>
+    <input type="text" id="dateStr" placeholder="YYYY-MM-DD (optional)">
+    <button id="showMap">Show Map</button>
+    <div><img id="mapImg" src="" alt="Map"></div>
+  </div>
+
+  <div class="section">
+    <h2>Enter Past-Year Demand</h2>
+    <select id="demDistrict"></select>
+    <input type="number" id="demYear" placeholder="Year (e.g., 2022)">
+    <input type="number" id="demMld" placeholder="Demand (MLD)">
+    <button id="saveDemand">Save</button>
+    <div id="demStatus"></div>
+  </div>
+
+  <div class="section">
+    <h2>Demand/Supply Analysis</h2>
+    <select id="anaDistrict"></select>
+    <label><input type="checkbox" id="useLatest" checked> Use latest year</label>
+    <button id="runAnalysis">Run</button>
+    <div id="analysisBox"></div>
+  </div>
+
+  <div class="section">
+    <h2>AI Crop Recommendations</h2>
+    <input type="text" id="region" placeholder="Region (optional)">
+    <button id="askAI">Get AI Recommendations</button>
+    <button id="moreTips">More tips with AI</button>
+    <textarea id="aiOut" readonly></textarea>
+    <textarea id="tipsOut" readonly></textarea>
+  </div>
+
+  <div class="section">
+    <h2>Inventory Management</h2>
+    <div>
+      <input type="text" id="cropAdd" placeholder="Crop name">
+      <input type="number" id="qtyAdd" placeholder="Qty (kg)">
+      <button id="addBtn">Add Stock</button>
     </div>
-
-    <div class="grid three" style="margin-top:16px">
-      <div class="card">
-        <h2>Map Controls</h2>
-        <div class="row">
-          <select id="districtSel"></select>
-          <input id="dateSel" placeholder="YYYY-MM-01 (optional)"/>
-          <button id="showMap">Show Map</button>
-        </div>
-        <p class="footer">Tip: leave date blank to use the latest month in your CSV.</p>
-      </div>
-
-      <div class="card" style="grid-column: span 2;">
-        <h2>Map</h2>
-        <img id="mapImg" alt="Risk map will appear here"/>
-      </div>
+    <div>
+      <input type="text" id="cropSell" placeholder="Crop name">
+      <input type="number" id="qtySell" placeholder="Qty (kg)">
+      <button id="sellBtn">Record Sale</button>
     </div>
+    <table id="invTbl">
+      <thead><tr><th>Crop</th><th>Stock (kg)</th><th>Sold (kg)</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
 
-    <!-- NEW: Demand–Supply calibration & analysis -->
-    <div class="grid two" style="margin-top:16px">
-      <div class="card">
-        <h2>Enter Past-Year Demand (MLD)</h2>
-        <div class="row">
-          <select id="demDistrict"></select>
-          <input id="demYear" type="number" placeholder="Year (e.g., 2024)" />
-          <input id="demValue" type="number" min="0" step="0.01" placeholder="Demand MLD" />
-          <button id="saveDemand">Save</button>
-        </div>
-        <small class="footer">Use a reliable total daily water demand for that district (MLD = million litres/day).</small>
-      </div>
-
-      <div class="card">
-        <h2>Analyze Demand vs Supply (Calibrated)</h2>
-        <div class="row">
-          <select id="anaDistrict"></select>
-          <button id="runAnalysis">Run Analysis</button>
-        </div>
-        <div id="analysisBox" style="margin-top:10px">—</div>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:16px">
-      <h2>Irrigation Suggestion (last row in dataset)</h2>
-      <div id="irrigationBox">-</div>
-    </div>
-
-    <div class="card" style="margin-top:16px">
-      <h2>AI Crop Recommendations (Gemini)</h2>
-      <div class="row">
-        <input id="region" placeholder="Region (optional)" />
-        <button id="askAI" class="right">Get AI Recommendations</button>
-      </div>
-      <textarea id="aiOut" placeholder="Results appear here..."></textarea>
-      <small class="footer">Set <code>GEMINI_API_KEY</code> env var on the backend.</small>
-    </div>
-
-    <div class="card" style="margin-top:16px">
-      <h2>Per-Month/District Details</h2>
-      <table id="rowsTbl">
-        <thead>
-          <tr>
-            <th>Date</th><th>District</th><th>Risk</th><th>Drought Index</th><th>Water Balance (mm)</th><th>Ratio</th><th>Temp (°C)</th><th>Rain (mm)</th><th>ET (mm)</th><th>GW (m)</th><th>NDVI</th><th>Humidity %</th><th>Yield Loss %</th><th>Irrigation</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
-    <div class="grid two" style="margin-top:16px">
-      <div class="card">
-        <h2>Inventory — Add Stock</h2>
-        <div class="row">
-          <input id="cropAdd" placeholder="Crop name"/>
-          <input id="qtyAdd" type="number" min="0" step="0.1" placeholder="kg"/>
-          <button id="addBtn">Add</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Inventory — Record Sale</h2>
-        <div class="row">
-          <input id="cropSell" placeholder="Crop name"/>
-          <input id="qtySell" type="number" min="0" step="0.1" placeholder="kg"/>
-          <button id="sellBtn">Sell</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:16px">
-      <h2>Inventory Status</h2>
-      <table id="invTbl">
-        <thead><tr><th>Crop</th><th>Stock (kg)</th><th>Sold (kg)</th></tr></thead>
-        <tbody></tbody>
-      </table>
-      <button id="refreshInv" style="margin-top:10px">Refresh Inventory</button>
-    </div>
-
-    <p class="footer">Run API at <code>http://127.0.0.1:8000</code>, serve this file (e.g., Live Server) on port 5500.</p>
+  <div class="section">
+    <h2>District Data</h2>
+    <table id="rowsTbl">
+      <thead>
+        <tr>
+          <th>Date</th><th>District</th><th>Risk</th><th>Drought Index</th><th>Water Balance (mm)</th>
+          <th>S/D Ratio</th><th>Temp (°C)</th><th>Rain (mm)</th><th>ET (mm)</th><th>Groundwater (m)</th>
+          <th>NDVI</th><th>Humidity (%)</th><th>Yield Loss (%)</th><th>Irrigation</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
   </div>
 
   <script>
     const API = "http://127.0.0.1:8000";
-    function riskClass(r){ return r==="High"?"badge high":r==="Medium"?"badge med":"badge low"; }
-    function alertClass(text){
-      if(text.includes("shortage")||text.includes("Activate")) return "alert crit";
-      if(text.includes("Monitor")) return "alert warn";
-      return "alert ok";
-    }
-    function statusPill(ok){ return ok ? 'pill status-good' : 'pill status-bad'; }
 
-    async function loadDistricts(){
+    function riskClass(risk) {
+      return risk === "Low" ? "Low" : risk === "Medium" ? "Medium" : risk === "High" ? "High" : "";
+    }
+
+    function alertClass(alert) {
+      return alert.includes("stable") ? "alert-ok" : "alert-warn";
+    }
+
+    async function loadDistricts() {
       const r = await fetch(`${API}/districts`);
       const data = await r.json();
       const sels = [document.getElementById("districtSel"), document.getElementById("demDistrict"), document.getElementById("anaDistrict")];
       sels.forEach(sel => {
         sel.innerHTML = "";
         const opt = document.createElement("option");
-        opt.value = ""; opt.textContent = sel.id==="districtSel" ? "— Highlight (optional) —" : "— Select district —";
+        opt.value = "";
+        opt.textContent = sel.id === "districtSel" ? "— Highlight (optional) —" : "— Select district —";
         sel.appendChild(opt);
-        (data.districts||[]).forEach(d=>{
-          const o = document.createElement("option");
-          o.value = d; o.textContent = d;
-          sel.appendChild(o);
-        });
+        if (data.districts.length === 0) {
+          const noDataOpt = document.createElement("option");
+          noDataOpt.value = "";
+          noDataOpt.textContent = "No districts (upload CSV first)";
+          noDataOpt.disabled = true;
+          sel.appendChild(noDataOpt);
+        } else {
+          data.districts.forEach(d => {
+            const o = document.createElement("option");
+            o.value = d;
+            o.textContent = d;
+            sel.appendChild(o);
+          });
+        }
       });
     }
 
-    async function refreshLatest(){
-      try{
+    async function refreshInventory() {
+      const r = await fetch(`${API}/inventory`);
+      const data = await r.json();
+      const tbody = document.querySelector("#invTbl tbody");
+      tbody.innerHTML = "";
+      for (const [crop, rec] of Object.entries(data.items)) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${crop}</td><td>${rec.stock_kg}</td><td>${rec.sold_kg}</td>`;
+        tbody.appendChild(tr);
+      }
+    }
+
+    async function refreshLatest() {
+      try {
         const res = await fetch(`${API}/predict`);
-        if(!res.ok) return;
+        if (!res.ok) {
+          document.getElementById("status").innerHTML = `
+            Worst Risk (latest): <span id="riskBadge">-</span><br>
+            Average Supply/Demand Ratio: <span id="avgRatio">-</span><br>
+            Latest Date: <span id="date">-</span><br>
+            <span id="alertBox">No data yet.</span>
+          `;
+          document.getElementById("irrigationBox").textContent = "";
+          document.getElementById("climateInfo").style.display = "none";
+          document.querySelector("#rowsTbl tbody").innerHTML = "";
+          return;
+        }
         const all = await res.json();
         const s = all.summary;
-        document.getElementById("riskBadge").className = riskClass(s.current_risk);
-        document.getElementById("riskBadge").textContent = s.current_risk;
-        document.getElementById("avgRatio").textContent = s.avg_ratio;
-        document.getElementById("date").textContent = s.current_date;
-        const alertBox = document.getElementById("alertBox");
-        alertBox.textContent = s.alert;
-        alertBox.className = alertClass(s.alert);
 
-        const last = all.per_row[all.per_row.length-1];
-        const irr = last.irrigation;
-        document.getElementById("irrigationBox").textContent =
-          `${irr.events_per_week}x/week, ~${irr.mm_per_event} mm/event — ${irr.notes}`;
+        document.getElementById("status").innerHTML = `
+          Worst Risk (latest): <span id="riskBadge" class="${riskClass(s.current_risk)}">${s.current_risk}</span><br>
+          Average Supply/Demand Ratio: <span id="avgRatio">${s.avg_ratio}</span><br>
+          Latest Date: <span id="date">${s.current_date}</span><br>
+          <span id="alertBox" class="${alertClass(s.alert)}">${s.alert}</span>
+        `;
+
+        const climateInfo = document.getElementById("climateInfo");
+        if (all.per_row && all.per_row.length > 0) {
+          const last = all.per_row[all.per_row.length - 1];
+          climateInfo.style.display = "block";
+          climateInfo.innerHTML = `
+            <small>Using current climate data: ${last.temperature_c}°C, 
+            ${last.rainfall_mm}mm rain, ${last.humidity_pct}% humidity, 
+            ${last.risk} drought risk</small>
+          `;
+          const irr = last.irrigation;
+          document.getElementById("irrigationBox").textContent =
+            `${irr.events_per_week}x/week, ~${irr.mm_per_event} mm/event — ${irr.notes}`;
+        } else {
+          climateInfo.style.display = "none";
+          document.getElementById("irrigationBox").textContent = "";
+        }
 
         const tbody = document.querySelector("#rowsTbl tbody");
         tbody.innerHTML = "";
-        all.per_row.forEach(r=>{
+        all.per_row.forEach(r => {
           const tr = document.createElement("tr");
           tr.innerHTML = `
             <td>${r.date}</td>
@@ -244,140 +227,232 @@
           `;
           tbody.appendChild(tr);
         });
-      }catch(e){}
+      } catch (e) {
+        console.error("Error refreshing latest:", e);
+      }
     }
 
-    async function refreshInventory(){
-      const res = await fetch(`${API}/inventory`);
-      const data = await res.json();
-      const tbody = document.querySelector("#invTbl tbody");
-      tbody.innerHTML = "";
-      const items = data.items || {};
-      Object.keys(items).sort().forEach(k=>{
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${k}</td><td>${items[k].stock_kg}</td><td>${items[k].sold_kg}</td>`;
-        tbody.appendChild(tr);
-      });
-    }
+    document.getElementById("uploadBtn").addEventListener("click", async () => {
+      const fileInput = document.getElementById("csvFile");
+      if (!fileInput.files.length) {
+        document.getElementById("uploadStatus").textContent = "Select a CSV file.";
+        return;
+      }
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+      try {
+        const res = await fetch(`${API}/upload-csv`, {
+          method: "POST",
+          body: formData
+        });
+        const data = await res.json();
+        document.getElementById("uploadStatus").textContent = res.ok ? "Uploaded successfully!" : `Error: ${data.detail}`;
+        if (res.ok) {
+          await loadDistricts();
+          await refreshLatest();
+        }
+      } catch (e) {
+        document.getElementById("uploadStatus").textContent = "Error: " + e.message;
+      }
+    });
 
-    document.getElementById("uploadBtn").addEventListener("click", async ()=>{
-      const f = document.getElementById("csv").files[0];
-      if(!f){ alert("Choose a CSV file first."); return; }
-      const fd = new FormData(); fd.append("file", f);
-      const msg = document.getElementById("uploadStatus");
-      msg.textContent = "Uploading...";
-      const res = await fetch(`${API}/upload-csv`, { method:"POST", body: fd });
-      const data = await res.json();
-      if(!res.ok){ msg.textContent = "Error: " + (data.detail || "failed"); return; }
-      msg.textContent = "Analyzed! Latest: " + JSON.stringify(data.summary);
+    document.getElementById("showMap").addEventListener("click", async () => {
+      const district = document.getElementById("districtSel").value;
+      const dateStr = document.getElementById("dateStr").value;
+      const url = `${API}/map?${district ? `district=${district}&` : ''}${dateStr ? `date_str=${dateStr}` : ''}`;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) {
+          const data = await res.json();
+          document.getElementById("mapImg").src = "";
+          alert(data.detail || "Failed to load map.");
+          return;
+        }
+        const blob = await res.blob();
+        document.getElementById("mapImg").src = URL.createObjectURL(blob);
+      } catch (e) {
+        document.getElementById("mapImg").src = "";
+        alert("Error loading map: " + e.message);
+      }
+    });
+
+    document.getElementById("saveDemand").addEventListener("click", async () => {
+      const district = document.getElementById("demDistrict").value;
+      const year = parseInt(document.getElementById("demYear").value);
+      const demand = parseFloat(document.getElementById("demMld").value);
+      if (!district || !year || demand <= 0) {
+        document.getElementById("demStatus").textContent = "Enter valid district, year, and demand.";
+        return;
+      }
+      try {
+        const res = await fetch(`${API}/demand-history/add`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ district, year, demand_mld: demand })
+        });
+        const data = await res.json();
+        document.getElementById("demStatus").textContent = res.ok ? "Saved!" : `Error: ${data.detail}`;
+      } catch (e) {
+        document.getElementById("demStatus").textContent = "Error: " + e.message;
+      }
+    });
+
+    document.getElementById("runAnalysis").addEventListener("click", async () => {
+      const district = document.getElementById("anaDistrict").value;
+      const useLatest = document.getElementById("useLatest").checked;
+      if (!district) {
+        document.getElementById("analysisBox").textContent = "Select a district.";
+        return;
+      }
+      try {
+        const res = await fetch(`${API}/analysis/demand-supply?district=${district}&use_latest_year=${useLatest}`);
+        const data = await res.json();
+        if (!res.ok) {
+          document.getElementById("analysisBox").textContent = `Error: ${data.detail}`;
+          return;
+        }
+        document.getElementById("analysisBox").innerHTML = `
+          District: ${data.district}<br>
+          Date: ${data.latest_date}<br>
+          Reference Year: ${data.reference_year}<br>
+          Demand: ${data.reference_demand_mld} MLD<br>
+          Supply: ${data.estimated_current_supply_mld} MLD<br>
+          Surplus: ${data.surplus_mld} MLD<br>
+          Status: ${data.status}<br>
+          Drought Risk: ${data.drought_risk}
+        `;
+      } catch (e) {
+        document.getElementById("analysisBox").textContent = "Error: " + e.message;
+      }
+    });
+
+    document.getElementById("moreTips").addEventListener("click", async () => {
+      try {
+        const res = await fetch(`${API}/predict`);
+        if (!res.ok) {
+          document.getElementById("tipsOut").value = "Error: Upload CSV first.";
+          return;
+        }
+        const all = await res.json();
+        const last = all.per_row[all.per_row.length - 1] || {};
+        const s = all.summary || {};
+
+        const climate = `Water Balance: ${last.water_balance_mm || 0} mm, Supply/Demand Ratio: ${last.supply_demand_ratio || 0}, ` +
+                       `Temperature: ${last.temperature_c || 0}°C, Evapotranspiration: ${last.evapotranspiration_mm || 0}mm, ` +
+                       `NDVI: ${last.ndvi || 0}, Risk: ${s.current_risk || 'N/A'}`;
+        const region = document.getElementById("region").value || last.district || "N/A";
+
+        const response = await fetch(`${API}/ai/tips`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ region, climate_summary: climate })
+        });
+
+        const data = await response.json();
+        const out = document.getElementById("tipsOut");
+        if (!response.ok) {
+          out.value = `Error: ${data.detail || "Failed to fetch tips"}`;
+          return;
+        }
+        out.value = data.tips || "No tips generated.";
+      } catch (error) {
+        document.getElementById("tipsOut").value = "Error: " + error.message;
+      }
+    });
+
+    document.getElementById("askAI").addEventListener("click", async () => {
+      try {
+        const res = await fetch(`${API}/predict`);
+        if (!res.ok) {
+          document.getElementById("aiOut").value = "Error: Upload CSV first.";
+          return;
+        }
+        const all = await res.json();
+        const lastRow = all.per_row[all.per_row.length - 1] || {};
+        const region = document.getElementById("region").value || lastRow.district || "N/A";
+
+        const climateData = {
+          temperature: lastRow.temperature_c || 0,
+          rainfall: lastRow.rainfall_mm || 0,
+          humidity: lastRow.humidity_pct || 0,
+          soil_moisture: lastRow.soil_moisture || 0,
+          drought_risk: lastRow.risk || "N/A",
+          water_balance: lastRow.water_balance_mm || 0
+        };
+
+        const response = await fetch(`${API}/ai/crop-recommendations`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ region, climate_data: climateData })
+        });
+
+        const data = await response.json();
+        const out = document.getElementById("aiOut");
+        if (!response.ok) {
+          out.value = `Error: ${data.detail || "Failed to fetch recommendations"}`;
+          return;
+        }
+        out.value = data.recommendations || "No recommendations generated.";
+      } catch (error) {
+        document.getElementById("aiOut").value = "Error: " + error.message;
+      }
+    });
+
+    document.getElementById("addBtn").addEventListener("click", async () => {
+      const crop = document.getElementById("cropAdd").value.trim().toLowerCase();
+      const quantity = parseFloat(document.getElementById("qtyAdd").value);
+      if (!crop || quantity <= 0) {
+        alert("Enter a valid crop name and positive quantity.");
+        return;
+      }
+      try {
+        const res = await fetch(`${API}/inventory/add`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ crop, quantity_kg: quantity })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.detail || "Error adding stock.");
+          return;
+        }
+        await refreshInventory();
+        alert("Stock added!");
+      } catch (error) {
+        alert("Error: " + error.message);
+      }
+    });
+
+    document.getElementById("sellBtn").addEventListener("click", async () => {
+      const crop = document.getElementById("cropSell").value.trim().toLowerCase();
+      const quantity = parseFloat(document.getElementById("qtySell").value);
+      if (!crop || quantity <= 0) {
+        alert("Enter a valid crop name and positive quantity.");
+        return;
+      }
+      try {
+        const res = await fetch(`${API}/inventory/sell`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ crop, quantity_kg: quantity })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.detail || "Error recording sale.");
+          return;
+        }
+        await refreshInventory();
+        alert("Sale recorded!");
+      } catch (error) {
+        alert("Error: " + error.message);
+      }
+    });
+
+    window.onload = async () => {
       await loadDistricts();
       await refreshLatest();
-      document.getElementById("showMap").click();
-    });
-
-    document.getElementById("showMap").addEventListener("click", async ()=>{
-      const district = document.getElementById("districtSel").value || "";
-      const dateStr = document.getElementById("dateSel").value || "";
-      const url = new URL(`${API}/map`);
-      if(district) url.searchParams.set("district", district);
-      if(dateStr) url.searchParams.set("date_str", dateStr);
-      document.getElementById("mapImg").src = url.toString();
-    });
-
-    // Demand history
-    document.getElementById("saveDemand").addEventListener("click", async ()=>{
-      const district = document.getElementById("demDistrict").value;
-      const year = parseInt(document.getElementById("demYear").value || "0");
-      const demand = parseFloat(document.getElementById("demValue").value || "0");
-      if(!district || !year || demand<=0){ return alert("Select district, enter year and positive demand (MLD)."); }
-      const r = await fetch(`${API}/demand-history/add`, {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({district, year, demand_mld: demand})
-      });
-      const data = await r.json();
-      if(!r.ok){ alert(data.detail || "Error"); return; }
-      alert("Saved!");
-    });
-
-    document.getElementById("runAnalysis").addEventListener("click", async ()=>{
-      const district = document.getElementById("anaDistrict").value;
-      if(!district){ return alert("Select a district to analyze."); }
-      const r = await fetch(`${API}/analysis/demand-supply?district=` + encodeURIComponent(district));
-      const data = await r.json();
-      const box = document.getElementById("analysisBox");
-      if(!r.ok){ box.textContent = (data.detail || "No analysis available."); return; }
-      const ok = data.status === "Surplus";
-      box.innerHTML = `
-        <div class="${statusPill(ok)}">${data.status}</div>
-        <div style="margin-top:8px">
-          <b>${data.district}</b> — Latest: <b>${data.latest_date}</b><br/>
-          Reference year: <b>${data.reference_year}</b>, Demand: <b>${data.reference_demand_mld} MLD</b><br/>
-          Estimated current supply: <b>${data.estimated_current_supply_mld} MLD</b><br/>
-          Assumed current demand: <b>${data.assumed_current_demand_mld} MLD</b><br/>
-          Surplus/Shortage: <b>${data.surplus_mld} MLD</b><br/>
-          Drought risk: <span class="${riskClass(data.drought_risk)}">${data.drought_risk}</span>
-        </div>`;
-    });
-
-    // AI
-    document.getElementById("askAI").addEventListener("click", async ()=>{
-      const res = await fetch(`${API}/predict`);
-      if(!res.ok){ alert("Upload CSV first."); return; }
-      const all = await res.json();
-      const last = all.per_row[all.per_row.length-1];
-      const s = all.summary;
-
-      const climate = `District ${last.district}, WB ${last.water_balance_mm} mm, ratio ${last.supply_demand_ratio}, `
-        + `T ${last.temperature_c}°C, ET ${last.evapotranspiration_mm}mm, NDVI ${last.ndvi}.`;
-      const region = document.getElementById("region").value;
-
-      const body = { climate_summary: climate, risk_level: s.current_risk, region };
-      const out = document.getElementById("aiOut");
-      out.value = "Asking Gemini...";
-      const r = await fetch(`${API}/ai/recommend`, {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify(body)
-      });
-      const data = await r.json();
-      if(!r.ok){ out.value = "Error: " + (data.detail || "Gemini failed"); return; }
-      out.value = data.recommendations;
-    });
-
-    // Tips via AI
-    document.getElementById("moreTips").addEventListener("click", async ()=>{
-      const res = await fetch(`${API}/predict`);
-      if(!res.ok){ alert("Upload CSV first so AI can see context."); return; }
-      const all = await res.json();
-      const last = all.per_row[all.per_row.length-1];
-      const s = all.summary;
-      const climate = `WB ${last.water_balance_mm} mm, ratio ${last.supply_demand_ratio}, T ${last.temperature_c}°C, `
-        + `ET ${last.evapotranspiration_mm}mm, NDVI ${last.ndvi}. Risk ${s.current_risk}`;
-      const body = {
-        climate_summary: "Provide concise community water-saving actions for Nepal context. " + climate,
-        risk_level: s.current_risk,
-        region: last.district
-      };
-      const out = document.getElementById("tipsOut");
-      out.value = "Asking Gemini for localized tips...";
-      const r = await fetch(`${API}/ai/recommend`, {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify(body)
-      });
-      const data = await r.json();
-      if(!r.ok){ out.value = "Error: " + (data.detail || "Gemini failed"); return; }
-      out.value = data.recommendations;
-    });
-
-    document.getElementById("showMap").addEventListener("click", ()=>{}); // noop, defined above
-    document.getElementById("refreshInv").addEventListener("click", refreshInventory);
-
-    // Initial
-    loadDistricts();
-    refreshLatest();
-    refreshInventory();
+      await refreshInventory();
+    };
   </script>
 </body>
 </html>
-
