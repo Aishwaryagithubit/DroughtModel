@@ -1,458 +1,74 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nepal Drought Planner</title>
-  <style>
-    body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; background: #f4f4f4; }
-    h1, h2 { color: #203047; }
-    h1 { text-align: center; }
-    .section { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .section h2 { margin-top: 0; }
-    button { background: #203047; color: white; border: none; padding: 8px 16px; cursor: pointer; border-radius: 4px; }
-    button:hover { background: #2a4060; }
-    input, select, textarea { padding: 6px; margin: 5px; border: 1px solid #ccc; border-radius: 4px; }
-    textarea { width: 100%; height: 100px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    th { background: #203047; color: white; }
-    .Low { background: #7fd8be; color: black; padding: 2px 6px; border-radius: 4px; }
-    .Medium { background: #ffd166; color: black; padding: 2px 6px; border-radius: 4px; }
-    .High { background: #ef476f; color: white; padding: 2px 6px; border-radius: 4px; }
-    .alert-ok { color: green; }
-    .alert-warn { color: #d97706; }
-    #mapImg { max-width: 100%; height: auto; margin-top: 10px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌾 Drought Prediction Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Roboto', sans-serif; }
+        .hero { background: linear-gradient(to right, #4ade80, #16a34a); }
+        .btn-primary { background-color: #16a34a; color: white; }
+        .btn-primary:hover { background-color: #15803d; }
+        .iframe-container {
+            position: relative;
+            width: 100%;
+            padding-bottom: 90%; /* Maintain aspect ratio */
+            height: 0;
+            overflow: hidden;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .iframe-container iframe {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    </style>
 </head>
-<body>
-  <h1>Nepal Drought Planner</h1>
+<body class="bg-gray-50">
 
-  <div class="section">
-    <h2>Current Status</h2>
-    <div id="status">
-      Worst Risk (latest): <span id="riskBadge">-</span><br>
-      Average Supply/Demand Ratio: <span id="avgRatio">-</span><br>
-      Latest Date: <span id="date">-</span><br>
-      <span id="alertBox">No data yet.</span>
-    </div>
-    <div id="irrigationBox"></div>
-    <div id="climateInfo" style="display: none;"></div>
-  </div>
+    <!-- Hero Section -->
+    <section class="hero text-white py-20 px-4 text-center">
+        <h1 class="text-5xl font-bold mb-4">🌾 Drought Prediction Dashboard</h1>
+        <p class="text-xl mb-6">Predict rainfall, assess drought risk, and get crop recommendations for Nepal’s districts.</p>
+    </section>
 
-  <div class="section">
-    <h2>Upload Drought CSV</h2>
-    <input type="file" id="csvFile" accept=".csv">
-    <button id="uploadBtn">Upload</button>
-    <div id="uploadStatus"></div>
-  </div>
+    <!-- Features Section -->
+    <section class="py-20 px-4 max-w-6xl mx-auto">
+        <h2 class="text-3xl font-bold text-center mb-12">Features</h2>
+        <div class="grid md:grid-cols-3 gap-8 text-center">
+            <div class="bg-white p-6 rounded-xl shadow-lg hover:shadow-2xl transition">
+                <h3 class="text-xl font-semibold mb-3">📊 Dataset Preview</h3>
+                <p>Upload your CSV file and instantly preview the dataset in a clean, interactive table.</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-lg hover:shadow-2xl transition">
+                <h3 class="text-xl font-semibold mb-3">🌧️ Drought Prediction</h3>
+                <p>Predict rainfall for your selected district and get instant drought risk assessment.</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-lg hover:shadow-2xl transition">
+                <h3 class="text-xl font-semibold mb-3">🌿 Crop Recommendations</h3>
+                <p>Get suggested crops based on predicted rainfall to maximize yield and reduce losses.</p>
+            </div>
+        </div>
+    </section>
 
-  <div class="section">
-    <h2>Drought Risk Map</h2>
-    <select id="districtSel"></select>
-    <input type="text" id="dateStr" placeholder="YYYY-MM-DD (optional)">
-    <button id="showMap">Show Map</button>
-    <div><img id="mapImg" src="" alt="Map"></div>
-  </div>
+    <!-- Embedded Dashboard -->
+    <section class="py-20 px-4 bg-green-50 max-w-7xl mx-auto">
+        <h2 class="text-3xl font-bold text-center mb-6">🖥️ Interactive Dashboard</h2>
+        <p class="text-center max-w-xl mx-auto mb-6">Upload your CSV and explore predictions, crop recommendations, and district maps directly below.</p>
+        <div class="iframe-container">
+            <iframe src="http://localhost:8501" title="Drought Prediction Dashboard"></iframe>
+        </div>
+    </section>
 
-  <div class="section">
-    <h2>Enter Past-Year Demand</h2>
-    <select id="demDistrict"></select>
-    <input type="number" id="demYear" placeholder="Year (e.g., 2022)">
-    <input type="number" id="demMld" placeholder="Demand (MLD)">
-    <button id="saveDemand">Save</button>
-    <div id="demStatus"></div>
-  </div>
+    <!-- Footer -->
+    <footer class="py-8 text-center text-gray-600">
+        &copy; 2025 🌾 Drought Prediction Dashboard. All rights reserved.
+    </footer>
 
-  <div class="section">
-    <h2>Demand/Supply Analysis</h2>
-    <select id="anaDistrict"></select>
-    <label><input type="checkbox" id="useLatest" checked> Use latest year</label>
-    <button id="runAnalysis">Run</button>
-    <div id="analysisBox"></div>
-  </div>
-
-  <div class="section">
-    <h2>AI Crop Recommendations</h2>
-    <input type="text" id="region" placeholder="Region (optional)">
-    <button id="askAI">Get AI Recommendations</button>
-    <button id="moreTips">More tips with AI</button>
-    <textarea id="aiOut" readonly></textarea>
-    <textarea id="tipsOut" readonly></textarea>
-  </div>
-
-  <div class="section">
-    <h2>Inventory Management</h2>
-    <div>
-      <input type="text" id="cropAdd" placeholder="Crop name">
-      <input type="number" id="qtyAdd" placeholder="Qty (kg)">
-      <button id="addBtn">Add Stock</button>
-    </div>
-    <div>
-      <input type="text" id="cropSell" placeholder="Crop name">
-      <input type="number" id="qtySell" placeholder="Qty (kg)">
-      <button id="sellBtn">Record Sale</button>
-    </div>
-    <table id="invTbl">
-      <thead><tr><th>Crop</th><th>Stock (kg)</th><th>Sold (kg)</th></tr></thead>
-      <tbody></tbody>
-    </table>
-  </div>
-
-  <div class="section">
-    <h2>District Data</h2>
-    <table id="rowsTbl">
-      <thead>
-        <tr>
-          <th>Date</th><th>District</th><th>Risk</th><th>Drought Index</th><th>Water Balance (mm)</th>
-          <th>S/D Ratio</th><th>Temp (°C)</th><th>Rain (mm)</th><th>ET (mm)</th><th>Groundwater (m)</th>
-          <th>NDVI</th><th>Humidity (%)</th><th>Yield Loss (%)</th><th>Irrigation</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
-
-  <script>
-    const API = "http://127.0.0.1:8000";
-
-    function riskClass(risk) {
-      return risk === "Low" ? "Low" : risk === "Medium" ? "Medium" : risk === "High" ? "High" : "";
-    }
-
-    function alertClass(alert) {
-      return alert.includes("stable") ? "alert-ok" : "alert-warn";
-    }
-
-    async function loadDistricts() {
-      const r = await fetch(`${API}/districts`);
-      const data = await r.json();
-      const sels = [document.getElementById("districtSel"), document.getElementById("demDistrict"), document.getElementById("anaDistrict")];
-      sels.forEach(sel => {
-        sel.innerHTML = "";
-        const opt = document.createElement("option");
-        opt.value = "";
-        opt.textContent = sel.id === "districtSel" ? "— Highlight (optional) —" : "— Select district —";
-        sel.appendChild(opt);
-        if (data.districts.length === 0) {
-          const noDataOpt = document.createElement("option");
-          noDataOpt.value = "";
-          noDataOpt.textContent = "No districts (upload CSV first)";
-          noDataOpt.disabled = true;
-          sel.appendChild(noDataOpt);
-        } else {
-          data.districts.forEach(d => {
-            const o = document.createElement("option");
-            o.value = d;
-            o.textContent = d;
-            sel.appendChild(o);
-          });
-        }
-      });
-    }
-
-    async function refreshInventory() {
-      const r = await fetch(`${API}/inventory`);
-      const data = await r.json();
-      const tbody = document.querySelector("#invTbl tbody");
-      tbody.innerHTML = "";
-      for (const [crop, rec] of Object.entries(data.items)) {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${crop}</td><td>${rec.stock_kg}</td><td>${rec.sold_kg}</td>`;
-        tbody.appendChild(tr);
-      }
-    }
-
-    async function refreshLatest() {
-      try {
-        const res = await fetch(`${API}/predict`);
-        if (!res.ok) {
-          document.getElementById("status").innerHTML = `
-            Worst Risk (latest): <span id="riskBadge">-</span><br>
-            Average Supply/Demand Ratio: <span id="avgRatio">-</span><br>
-            Latest Date: <span id="date">-</span><br>
-            <span id="alertBox">No data yet.</span>
-          `;
-          document.getElementById("irrigationBox").textContent = "";
-          document.getElementById("climateInfo").style.display = "none";
-          document.querySelector("#rowsTbl tbody").innerHTML = "";
-          return;
-        }
-        const all = await res.json();
-        const s = all.summary;
-
-        document.getElementById("status").innerHTML = `
-          Worst Risk (latest): <span id="riskBadge" class="${riskClass(s.current_risk)}">${s.current_risk}</span><br>
-          Average Supply/Demand Ratio: <span id="avgRatio">${s.avg_ratio}</span><br>
-          Latest Date: <span id="date">${s.current_date}</span><br>
-          <span id="alertBox" class="${alertClass(s.alert)}">${s.alert}</span>
-        `;
-
-        const climateInfo = document.getElementById("climateInfo");
-        if (all.per_row && all.per_row.length > 0) {
-          const last = all.per_row[all.per_row.length - 1];
-          climateInfo.style.display = "block";
-          climateInfo.innerHTML = `
-            <small>Using current climate data: ${last.temperature_c}°C, 
-            ${last.rainfall_mm}mm rain, ${last.humidity_pct}% humidity, 
-            ${last.risk} drought risk</small>
-          `;
-          const irr = last.irrigation;
-          document.getElementById("irrigationBox").textContent =
-            `${irr.events_per_week}x/week, ~${irr.mm_per_event} mm/event — ${irr.notes}`;
-        } else {
-          climateInfo.style.display = "none";
-          document.getElementById("irrigationBox").textContent = "";
-        }
-
-        const tbody = document.querySelector("#rowsTbl tbody");
-        tbody.innerHTML = "";
-        all.per_row.forEach(r => {
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-            <td>${r.date}</td>
-            <td>${r.district}</td>
-            <td><span class="${riskClass(r.risk)}">${r.risk}</span></td>
-            <td>${r.drought_index}</td>
-            <td>${r.water_balance_mm}</td>
-            <td>${r.supply_demand_ratio}</td>
-            <td>${r.temperature_c}</td>
-            <td>${r.rainfall_mm}</td>
-            <td>${r.evapotranspiration_mm}</td>
-            <td>${r.groundwater_m}</td>
-            <td>${r.ndvi}</td>
-            <td>${r.humidity_pct}</td>
-            <td>${r.crop_yield_loss_pct}</td>
-            <td>${r.irrigation.events_per_week}x, ${r.irrigation.mm_per_event}mm — ${r.irrigation.notes}</td>
-          `;
-          tbody.appendChild(tr);
-        });
-      } catch (e) {
-        console.error("Error refreshing latest:", e);
-      }
-    }
-
-    document.getElementById("uploadBtn").addEventListener("click", async () => {
-      const fileInput = document.getElementById("csvFile");
-      if (!fileInput.files.length) {
-        document.getElementById("uploadStatus").textContent = "Select a CSV file.";
-        return;
-      }
-      const formData = new FormData();
-      formData.append("file", fileInput.files[0]);
-      try {
-        const res = await fetch(`${API}/upload-csv`, {
-          method: "POST",
-          body: formData
-        });
-        const data = await res.json();
-        document.getElementById("uploadStatus").textContent = res.ok ? "Uploaded successfully!" : `Error: ${data.detail}`;
-        if (res.ok) {
-          await loadDistricts();
-          await refreshLatest();
-        }
-      } catch (e) {
-        document.getElementById("uploadStatus").textContent = "Error: " + e.message;
-      }
-    });
-
-    document.getElementById("showMap").addEventListener("click", async () => {
-      const district = document.getElementById("districtSel").value;
-      const dateStr = document.getElementById("dateStr").value;
-      const url = `${API}/map?${district ? `district=${district}&` : ''}${dateStr ? `date_str=${dateStr}` : ''}`;
-      try {
-        const res = await fetch(url);
-        if (!res.ok) {
-          const data = await res.json();
-          document.getElementById("mapImg").src = "";
-          alert(data.detail || "Failed to load map.");
-          return;
-        }
-        const blob = await res.blob();
-        document.getElementById("mapImg").src = URL.createObjectURL(blob);
-      } catch (e) {
-        document.getElementById("mapImg").src = "";
-        alert("Error loading map: " + e.message);
-      }
-    });
-
-    document.getElementById("saveDemand").addEventListener("click", async () => {
-      const district = document.getElementById("demDistrict").value;
-      const year = parseInt(document.getElementById("demYear").value);
-      const demand = parseFloat(document.getElementById("demMld").value);
-      if (!district || !year || demand <= 0) {
-        document.getElementById("demStatus").textContent = "Enter valid district, year, and demand.";
-        return;
-      }
-      try {
-        const res = await fetch(`${API}/demand-history/add`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ district, year, demand_mld: demand })
-        });
-        const data = await res.json();
-        document.getElementById("demStatus").textContent = res.ok ? "Saved!" : `Error: ${data.detail}`;
-      } catch (e) {
-        document.getElementById("demStatus").textContent = "Error: " + e.message;
-      }
-    });
-
-    document.getElementById("runAnalysis").addEventListener("click", async () => {
-      const district = document.getElementById("anaDistrict").value;
-      const useLatest = document.getElementById("useLatest").checked;
-      if (!district) {
-        document.getElementById("analysisBox").textContent = "Select a district.";
-        return;
-      }
-      try {
-        const res = await fetch(`${API}/analysis/demand-supply?district=${district}&use_latest_year=${useLatest}`);
-        const data = await res.json();
-        if (!res.ok) {
-          document.getElementById("analysisBox").textContent = `Error: ${data.detail}`;
-          return;
-        }
-        document.getElementById("analysisBox").innerHTML = `
-          District: ${data.district}<br>
-          Date: ${data.latest_date}<br>
-          Reference Year: ${data.reference_year}<br>
-          Demand: ${data.reference_demand_mld} MLD<br>
-          Supply: ${data.estimated_current_supply_mld} MLD<br>
-          Surplus: ${data.surplus_mld} MLD<br>
-          Status: ${data.status}<br>
-          Drought Risk: ${data.drought_risk}
-        `;
-      } catch (e) {
-        document.getElementById("analysisBox").textContent = "Error: " + e.message;
-      }
-    });
-
-    document.getElementById("moreTips").addEventListener("click", async () => {
-      try {
-        const res = await fetch(`${API}/predict`);
-        if (!res.ok) {
-          document.getElementById("tipsOut").value = "Error: Upload CSV first.";
-          return;
-        }
-        const all = await res.json();
-        const last = all.per_row[all.per_row.length - 1] || {};
-        const s = all.summary || {};
-
-        const climate = `Water Balance: ${last.water_balance_mm || 0} mm, Supply/Demand Ratio: ${last.supply_demand_ratio || 0}, ` +
-                       `Temperature: ${last.temperature_c || 0}°C, Evapotranspiration: ${last.evapotranspiration_mm || 0}mm, ` +
-                       `NDVI: ${last.ndvi || 0}, Risk: ${s.current_risk || 'N/A'}`;
-        const region = document.getElementById("region").value || last.district || "N/A";
-
-        const response = await fetch(`${API}/ai/tips`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ region, climate_summary: climate })
-        });
-
-        const data = await response.json();
-        const out = document.getElementById("tipsOut");
-        if (!response.ok) {
-          out.value = `Error: ${data.detail || "Failed to fetch tips"}`;
-          return;
-        }
-        out.value = data.tips || "No tips generated.";
-      } catch (error) {
-        document.getElementById("tipsOut").value = "Error: " + error.message;
-      }
-    });
-
-    document.getElementById("askAI").addEventListener("click", async () => {
-      try {
-        const res = await fetch(`${API}/predict`);
-        if (!res.ok) {
-          document.getElementById("aiOut").value = "Error: Upload CSV first.";
-          return;
-        }
-        const all = await res.json();
-        const lastRow = all.per_row[all.per_row.length - 1] || {};
-        const region = document.getElementById("region").value || lastRow.district || "N/A";
-
-        const climateData = {
-          temperature: lastRow.temperature_c || 0,
-          rainfall: lastRow.rainfall_mm || 0,
-          humidity: lastRow.humidity_pct || 0,
-          soil_moisture: lastRow.soil_moisture || 0,
-          drought_risk: lastRow.risk || "N/A",
-          water_balance: lastRow.water_balance_mm || 0
-        };
-
-        const response = await fetch(`${API}/ai/crop-recommendations`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ region, climate_data: climateData })
-        });
-
-        const data = await response.json();
-        const out = document.getElementById("aiOut");
-        if (!response.ok) {
-          out.value = `Error: ${data.detail || "Failed to fetch recommendations"}`;
-          return;
-        }
-        out.value = data.recommendations || "No recommendations generated.";
-      } catch (error) {
-        document.getElementById("aiOut").value = "Error: " + error.message;
-      }
-    });
-
-    document.getElementById("addBtn").addEventListener("click", async () => {
-      const crop = document.getElementById("cropAdd").value.trim().toLowerCase();
-      const quantity = parseFloat(document.getElementById("qtyAdd").value);
-      if (!crop || quantity <= 0) {
-        alert("Enter a valid crop name and positive quantity.");
-        return;
-      }
-      try {
-        const res = await fetch(`${API}/inventory/add`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ crop, quantity_kg: quantity })
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          alert(data.detail || "Error adding stock.");
-          return;
-        }
-        await refreshInventory();
-        alert("Stock added!");
-      } catch (error) {
-        alert("Error: " + error.message);
-      }
-    });
-
-    document.getElementById("sellBtn").addEventListener("click", async () => {
-      const crop = document.getElementById("cropSell").value.trim().toLowerCase();
-      const quantity = parseFloat(document.getElementById("qtySell").value);
-      if (!crop || quantity <= 0) {
-        alert("Enter a valid crop name and positive quantity.");
-        return;
-      }
-      try {
-        const res = await fetch(`${API}/inventory/sell`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ crop, quantity_kg: quantity })
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          alert(data.detail || "Error recording sale.");
-          return;
-        }
-        await refreshInventory();
-        alert("Sale recorded!");
-      } catch (error) {
-        alert("Error: " + error.message);
-      }
-    });
-
-    window.onload = async () => {
-      await loadDistricts();
-      await refreshLatest();
-      await refreshInventory();
-    };
-  </script>
 </body>
 </html>
