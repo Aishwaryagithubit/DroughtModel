@@ -16,7 +16,7 @@
     header {
       background: #d1b519;
       color: white;
-      padding: 20px;
+      padding: 10px;
       display: flex;
       align-items: center;
       justify-content: flex-start; /* keep everything left-aligned */
@@ -52,7 +52,7 @@
     }
 
     button {
-      background: #06b600;
+      background: #11ad06;
       color: white;
       border: none;
       padding: 10px 20px;
@@ -165,6 +165,8 @@
   margin-bottom: 5px;
 }
 
+
+
     
   </style>
 
@@ -211,6 +213,10 @@
     </div>
   </section>
 
+  
+
+  
+
 <section>
   <h2>🤖 Automatic AI Crop Suggestions</h2>
   <div id="autoAIResult" class="ai-suggestions">
@@ -235,7 +241,8 @@
     <pre id="recommendationsResult"></pre>
   </section>
 
-  
+
+<div id="notificationIcon" style=" position: fixed; bottom: 20px; right: 20px; width: 50px; height: 50px; background: #ffcc00; border-radius: 50%; box-shadow: 0 2px 6px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10000; font-size: 24px; "> 💬 </div> <!-- Notification Box --> <div id="notificationContainer" style=" position: fixed; bottom: 80px; right: 20px; width: 300px; max-height: 400px; overflow-y: auto; z-index: 9999; display: none; /* initially hidden */ flex-direction: column-reverse; gap: 10px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); padding: 10px; "></div>
 
 
 
@@ -251,8 +258,24 @@
 
 
   <script>
+const API_URL = "http://127.0.0.1:8000";
+let riskChart = null;
 
-    function escapeHtml(text) {
+
+
+
+// --- Toast Notification ---
+function showToast(message, type="info", duration=3000) {
+    const toast = document.getElementById("toast");
+    toast.textContent = message;
+    toast.className = `toast show ${type}`;
+    setTimeout(() => {
+        toast.className = toast.className.replace("show", "");
+    }, duration);
+}
+
+// --- Escape HTML ---
+function escapeHtml(text) {
     if (text === null || text === undefined) return "";
     return String(text)
       .replace(/&/g, "&amp;")
@@ -260,214 +283,325 @@
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
-  }
-    const API_URL = "http://127.0.0.1:8000";
-    let riskChart = null;
-
-    function showToast(message, type="info", duration=3000) {
-  const toast = document.getElementById("toast");
-  toast.textContent = message;
-  toast.className = `toast show ${type}`;
-
-  setTimeout(() => {
-    toast.className = toast.className.replace("show", "");
-  }, duration);
 }
 
+// --- Format AI Response ---
 function formatAIResponse(text) {
-  if (!text) return "No advice available.";
-  // Optional: Add emojis or split by double newlines for bullet points
-  const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
-  return lines.map(line => {
-    if (/crop/i.test(line)) return '🌾 ' + line;
-    if (/water/i.test(line)) return '💧 ' + line;
-    if (/soil/i.test(line)) return '🌱 ' + line;
-    if (/risk|warning/i.test(line)) return '⚠️ ' + line;
-    return line;
-  }).join('\n');
+    if (!text) return "No advice available.";
+    const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
+    return lines.map(line => {
+        if (/crop/i.test(line)) return '🌾 ' + line;
+        if (/water/i.test(line)) return '💧 ' + line;
+        if (/soil/i.test(line)) return '🌱 ' + line;
+        if (/risk|warning/i.test(line)) return '⚠️ ' + line;
+        return line;
+    }).join('\n');
 }
 
+// --- Upload CSV ---
 async function uploadFile() {
-  const fileInput = document.getElementById("fileInput");
-  if (!fileInput.files.length) {
-    showToast("Please select a CSV file first!", "error");
-    return;
-  }
+    const fileInput = document.getElementById("fileInput");
+    if (!fileInput.files.length) { showToast("Please select a CSV file first!", "error"); return; }
 
-  const formData = new FormData();
-  formData.append("file", fileInput.files[0]);
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
 
-  try {
-    const res = await fetch(`${API_URL}/upload`, { method: "POST", body: formData });
-    const data = await res.json();
-
-    document.getElementById("uploadResult").textContent = "✅ Dataset uploaded successfully!";
-    showToast("Dataset uploaded successfully!", "success");
-
-    if (data.districts && data.districts.length > 0) {
-      const select = document.getElementById("districtSelect");
-      select.innerHTML = data.districts
-        .map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`)
-        .join("");
-    }
-  } catch (err) {
-    showToast("Upload failed: " + err.message, "error");
-  }
-}
-
-
-
-
-
-
-  // Automatic AI Suggestions after prediction
-async function getPrediction() {
-  const district = document.getElementById("districtSelect").value;
-  if (!district) { alert("Please select a district!"); return; }
-
-  try {
-    const res = await fetch(`${API_URL}/predict`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ district })
-    });
-    const data = await res.json();
-
-    // Show prediction
-    document.getElementById("predictionResult").textContent = 
-      `🌾 District: ${district}\n⚠️ Drought Status: ${data.drought_status || data.prediction}\n💧 Probability: ${data.probability || "N/A"}`;
-
-    if (data.probability !== undefined) updateRiskChart(Number(data.probability));
-
-    // Automatic AI suggestions
-    const autoAIResult = document.getElementById("autoAIResult");
-    autoAIResult.textContent = "⏳ Generating AI suggestions, please wait...";
     try {
-      const aiRes = await fetch(`${API_URL}/ai-advice`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: `District: ${district}, Prediction: ${data.drought_status || data.prediction}. 
-                  Provide concise crop recommendations, water-saving practices, and seasonal advice in bullet points for farmers.`
-        })
-      });
-      const aiData = await aiRes.json();
-      autoAIResult.textContent = formatAIResponse(aiData.advice);
+        const res = await fetch(`${API_URL}/upload`, { method: "POST", body: formData });
+        const data = await res.json();
+
+        document.getElementById("uploadResult").textContent = "✅ Dataset uploaded successfully!";
+        showToast("Dataset uploaded successfully!", "success");
+
+        if (data.districts && data.districts.length > 0) {
+            const select = document.getElementById("districtSelect");
+            select.innerHTML = data.districts
+                .map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`)
+                .join("");
+        }
     } catch (err) {
-      autoAIResult.textContent = "❌ Failed to get AI suggestions: " + err.message;
+        showToast("Upload failed: " + err.message, "error");
     }
-
-  } catch (err) {
-    alert("Prediction failed: " + err.message);
-  }
 }
 
+// --- Update Risk Chart ---
+function updateRiskChart(probability) {
+    const percent = Math.round(probability * 100);
+    const remainder = 100 - percent;
+    document.getElementById("riskText").innerText = `Drought risk: ${percent}%`;
 
-// Manual AI query with loading spinner
-async function getAIAdvice() {
-  const query = document.getElementById("aiQuery").value;
-  if (!query) { alert("Please enter a query!"); return; }
+    const ctx = document.getElementById('riskChart').getContext('2d');
+    if (riskChart) riskChart.destroy();
 
-  const aiResult = document.getElementById("aiResult");
-  aiResult.textContent = "⏳ Generating AI response, please wait...";
-
-  try {
-    const res = await fetch(`${API_URL}/ai-advice`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query })
-    });
-    const data = await res.json();
-    aiResult.textContent = formatAIResponse(data.advice);
-  } catch (err) {
-    aiResult.textContent = "❌ Failed to get AI response: " + err.message;
-  }
-}
-
-
-
-
-
-
-
-
-    function updateRiskChart(probability) {
-      const percent = Math.round(probability * 100);
-      const remainder = 100 - percent;
-      document.getElementById("riskText").innerText = `Drought risk: ${percent}%`;
-
-      const ctx = document.getElementById('riskChart').getContext('2d');
-      if (riskChart) riskChart.destroy();
-
-      riskChart = new Chart(ctx, {
+    riskChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
-          labels: ['Drought Risk', 'Remaining'],
-          datasets: [{
-            data: [percent, remainder],
-            backgroundColor: [
-              'rgba(255, 99, 132, 0.7)',
-              'rgba(201, 203, 207, 0.5)'
-            ],
-            borderWidth: 1
-          }]
+            labels: ['Drought Risk', 'Remaining'],
+            datasets: [{
+                data: [percent, remainder],
+                backgroundColor: ['rgba(255, 99, 132, 0.7)', 'rgba(201, 203, 207, 0.5)'],
+                borderWidth: 1
+            }]
         },
         options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: true, position: 'bottom' },
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  const label = context.label || '';
-                  const val = context.parsed || 0;
-                  return `${label}: ${val}%`;
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: true, position: 'bottom' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const val = context.parsed || 0;
+                            return `${label}: ${val}%`;
+                        }
+                    }
                 }
-              }
-            }
-          },
-          cutout: '65%'
+            },
+            cutout: '65%'
         }
-      });
-    }
-
-    async function getRecommendations() {
-  const recResult = document.getElementById("recommendationsResult");
-  recResult.textContent = "⏳ Fetching water-saving tips...";
-
-  try {
-    const res = await fetch(`${API_URL}/recommendations`);
-    if (!res.ok) throw new Error("Network response was not ok");
-
-    const data = await res.json();
-    recResult.textContent = (data.recommendations || []).join("\n");
-  } catch (err) {
-    recResult.textContent = "❌ Failed to fetch recommendations: " + err.message;
-  }
+    });
 }
 
-    // async function getAIAdvice() {
-    //   const query = document.getElementById("aiQuery").value;
-    //   if (!query) { alert("Please enter a query!"); return; }
+// --- Get Water Saving Recommendations ---
+async function getRecommendations() {
+    const recResult = document.getElementById("recommendationsResult");
+    recResult.textContent = "⏳ Fetching water-saving tips...";
+    try {
+        const res = await fetch(`${API_URL}/recommendations`);
+        if (!res.ok) throw new Error("Network response was not ok");
+        const data = await res.json();
+        recResult.textContent = (data.recommendations || []).join("\n");
+    } catch (err) {
+        recResult.textContent = "❌ Failed to fetch recommendations: " + err.message;
+    }
+}
 
-    //   const res = await fetch(`${API_URL}/ai-advice`, {
-    //     method: "POST",
-    //     headers: { "Content-Type": "application/json" },
-    //     body: JSON.stringify({ query })
-    //   });
-    //   const data = await res.json();
-    //   document.getElementById("aiResult").textContent = data.advice || "No response from AI.";
-    // }
+// --- Manual AI Query ---
+async function getAIAdvice() {
+    const query = document.getElementById("aiQuery").value;
+    if (!query) { alert("Please enter a query!"); return; }
 
-    // function escapeHtml(text) {
-    //   if (text === null || text === undefined) return "";
-    //   return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    //                      .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-    // }
+    const aiResult = document.getElementById("aiResult");
+    aiResult.textContent = "⏳ Generating AI response, please wait...";
+
+    try {
+        const res = await fetch(`${API_URL}/ai-advice`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query })
+        });
+        const data = await res.json();
+        aiResult.textContent = formatAIResponse(data.advice);
+    } catch (err) {
+        aiResult.textContent = "❌ Failed to get AI response: " + err.message;
+    }
+}
+
+// --- Notifications ---
+function loadNotifications() {
+    const container = document.getElementById("notificationContainer");
+    const saved = JSON.parse(localStorage.getItem("droughtAlerts") || "[]");
+    container.innerHTML = "";
+    saved.reverse().forEach(msg => {
+        const div = document.createElement("div");
+        div.className = "notification-item";
+        div.style.background = "#ffcc00";
+        div.style.borderLeft = "6px solid #d10000";
+        div.style.padding = "10px 35px 10px 10px";
+        div.style.borderRadius = "8px";
+        div.style.boxShadow = "0 2px 6px rgba(0,0,0,0.2)";
+        div.style.color = "#000";
+        div.style.fontSize = "14px";
+        div.style.lineHeight = "1.3";
+        div.style.position = "relative";
+        div.innerHTML = msg;
+
+        // ❌ Delete button
+        const delBtn = document.createElement("span");
+        delBtn.textContent = "❌";
+        delBtn.style.position = "absolute";
+        delBtn.style.top = "5px";
+        delBtn.style.right = "8px";
+        delBtn.style.cursor = "pointer";
+        delBtn.style.fontSize = "14px";
+        delBtn.onclick = () => deleteNotification(msg, div);
+
+        div.appendChild(delBtn);
+        container.appendChild(div);
+    });
+}
+
+// ✅ Shared delete function
+function deleteNotification(msg, element) {
+    // Remove from UI
+    element.remove();
+
+    // Remove from localStorage
+    let saved = JSON.parse(localStorage.getItem("droughtAlerts") || "[]");
+    saved = saved.filter(m => m !== msg);
+    localStorage.setItem("droughtAlerts", JSON.stringify(saved));
+
+    // Update count
+    updateNotificationCount();
+}
+
+// Add new notification
+function addNotification(msg) {
+    const container = document.getElementById("notificationContainer");
+
+    const div = document.createElement("div");
+    div.className = "notification-item";
+    div.style.background = "#ffcc00";
+    div.style.borderLeft = "6px solid #d10000";
+    div.style.padding = "10px 35px 10px 10px";
+    div.style.borderRadius = "8px";
+    div.style.boxShadow = "0 2px 6px rgba(0,0,0,0.2)";
+    div.style.color = "#000";
+    div.style.fontSize = "14px";
+    div.style.lineHeight = "1.3";
+    div.style.position = "relative";
+    div.innerHTML = msg;
+
+    // ❌ Delete button
+    const delBtn = document.createElement("span");
+    delBtn.textContent = "❌";
+    delBtn.style.position = "absolute";
+    delBtn.style.top = "5px";
+    delBtn.style.right = "8px";
+    delBtn.style.cursor = "pointer";
+    delBtn.style.fontSize = "14px";
+    delBtn.onclick = () => deleteNotification(msg, div);
+
+    div.appendChild(delBtn);
+    container.prepend(div);
+
+    // Save to localStorage
+    const saved = JSON.parse(localStorage.getItem("droughtAlerts") || "[]");
+    saved.push(msg);
+    localStorage.setItem("droughtAlerts", JSON.stringify(saved));
+
+    // Update count
+    updateNotificationCount();
+
+    // Toast popup
+    const toast = document.getElementById("toast");
+    toast.textContent = msg.replace(/<br>/g, " ");
+    toast.className = `toast show error`;
+    setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 4000);
+}
+
+function updateNotificationCount() {
+    const saved = JSON.parse(localStorage.getItem("droughtAlerts") || "[]");
+    let countSpan = document.getElementById("notificationCount");
+    if (!countSpan) {
+        countSpan = document.createElement("span");
+        countSpan.id = "notificationCount";
+        countSpan.style.position = "absolute";
+        countSpan.style.top = "-5px";
+        countSpan.style.right = "-5px";
+        countSpan.style.background = "#d10000";
+        countSpan.style.color = "#fff";
+        countSpan.style.width = "20px";
+        countSpan.style.height = "20px";
+        countSpan.style.borderRadius = "50%";
+        countSpan.style.fontSize = "12px";
+        countSpan.style.display = "flex";
+        countSpan.style.alignItems = "center";
+        countSpan.style.justifyContent = "center";
+        countSpan.style.fontWeight = "bold";
+        document.getElementById("notificationIcon").appendChild(countSpan);
+    }
+    countSpan.textContent = saved.length;
+}
 
 
-  </script>
+
+
+window.addEventListener("load", () => {
+    loadNotifications();
+    updateNotificationCount(); // update count when page loads
+});
+
+
+
+// Toggle notification box
+const icon = document.getElementById("notificationIcon");
+const container = document.getElementById("notificationContainer");
+icon.addEventListener("click", () => {
+    container.style.display = (container.style.display === "none") ? "flex" : "none";
+});
+
+// Load existing messages on page load
+window.addEventListener("load", loadNotifications);
+
+// Show drought alert after prediction
+function showDroughtAlert(district, crops, actions) {
+    const msg = `⚠️ ALERT: High drought risk in ${district}<br>
+                 Recommended crops: ${crops}<br>
+                 Suggested water-saving actions: ${actions}`;
+    addNotification(msg);
+}
+
+
+
+
+
+
+
+// --- Prediction + AI Suggestions + Alerts ---
+async function getPrediction() {
+    const district = document.getElementById("districtSelect").value;
+    if (!district) { alert("Please select a district!"); return; }
+
+    try {
+        const res = await fetch(`${API_URL}/predict`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ district })
+        });
+        const data = await res.json();
+
+        // Show prediction
+        const droughtStatus = data.drought_status || data.prediction;
+        const probability = Number(data.probability || 0);
+        document.getElementById("predictionResult").textContent = 
+            `🌾 District: ${district}\n⚠️ Drought Status: ${droughtStatus}\n💧 Probability: ${Math.round(probability*100)}%`;
+
+        if (!isNaN(probability)) updateRiskChart(probability);
+
+        // Show alert if probability is high
+        if (probability >= 0.5) {
+            const crops = data.recommended_crops || "Millet, Sorghum";
+            const actions = data.water_saving || "Mulching, Rainwater harvesting";
+            showDroughtAlert(district, crops, actions);
+        }
+
+        // Automatic AI suggestions
+        const autoAIResult = document.getElementById("autoAIResult");
+        autoAIResult.textContent = "⏳ Generating AI suggestions, please wait...";
+        try {
+            const aiRes = await fetch(`${API_URL}/ai-advice`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    query: `District: ${district}, Prediction: ${droughtStatus}. 
+                            Provide concise crop recommendations, water-saving practices, and seasonal advice in bullet points for farmers.`
+                })
+            });
+            const aiData = await aiRes.json();
+            autoAIResult.textContent = formatAIResponse(aiData.advice);
+        } catch (err) {
+            autoAIResult.textContent = "❌ Failed to get AI suggestions: " + err.message;
+        }
+
+    } catch (err) {
+        alert("Prediction failed: " + err.message);
+    }
+}
+
+</script>
+
 </body>
 </html>
 
