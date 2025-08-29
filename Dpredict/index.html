@@ -334,7 +334,6 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap contributors'
 }).addTo(map);
 
-
 // Store current district marker
 let currentMarker = null;
 
@@ -389,17 +388,24 @@ function escapeHtml(text) {
 }
 
 // --- Format AI Response ---
-function formatAIResponse(text) {
-    if (!text) return "No advice available.";
-    const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
-    return lines.map(line => {
-        if (/crop/i.test(line)) return '🌾 ' + line;
-        if (/water/i.test(line)) return '💧 ' + line;
-        if (/soil/i.test(line)) return '🌱 ' + line;
-        if (/risk|warning/i.test(line)) return '⚠️ ' + line;
-        return line;
-    }).join('\n');
+function formatAIResponse(aiText) {
+    if (!aiText) return "<i>No advice available.</i>";
+
+    let formatted = aiText
+        .replace(/### (.*)/g, "<h3>$1</h3>")
+        .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>")
+        .replace(/\* (.*)/g, "<li>$1</li>")
+        .replace(/---/g, "<hr>")
+        .replace(/🌾/g, "🌾")
+        .replace(/💧/g, "💧")
+        .replace(/🌱/g, "🌱");
+
+    // Wrap lists
+    formatted = formatted.replace(/(<li>.*<\/li>)/gs, "<ul>$1</ul>");
+
+    return formatted;
 }
+
 
 // --- Upload CSV ---
 async function uploadFile() {
@@ -495,7 +501,9 @@ async function getAIAdvice() {
             body: JSON.stringify({ query })
         });
         const data = await res.json();
-        aiResult.textContent = formatAIResponse(data.advice);
+        // autoAIResult.innerHTML = formatAIResponse(aiData.advice);
+        aiResult.innerHTML = formatAIResponse(data.advice);
+
     } catch (err) {
         aiResult.textContent = "❌ Failed to get AI response: " + err.message;
     }
@@ -668,6 +676,7 @@ async function getPrediction() {
         // Show prediction
         const droughtStatus = data.drought_status || data.prediction;
         const probability = Number(data.probability || 0);
+        
         document.getElementById("predictionResult").textContent = 
             `🌾 District: ${district}\n⚠️ Drought Status: ${droughtStatus}\n💧 Probability: ${Math.round(probability*100)}%`;
 
@@ -691,12 +700,50 @@ async function getPrediction() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    query: `District: ${district}, Prediction: ${droughtStatus}. 
-                            Provide concise crop recommendations, water-saving practices, and seasonal advice in bullet points for farmers.`
+                    query: `
+                    You are an agricultural AI assistant. Based on the prediction results below, generate suggestions.
+
+                        ⚠️ Focus on crops more than anything else(only crops grown in Nepal).
+                        District: ${district}, Prediction: ${data.drought_status || data.prediction}
+                        
+              
+
+                        ### Requirements:
+                        
+                        - Give at least 5 crop suggestions (with 1 short reason each).
+                        - Keep water management advice very short (max 4 points).
+                        - Keep farmer livelihood advice extremely brief (3 line).
+
+                        Format clearly:
+
+                        ### Crop Suggestions
+                        * Crop 1 — reason
+                        * Crop 2 — reason
+                        * Crop 3 — reason
+                        * Crop 4 — reason
+                        * Crop 6 — reason
+                        * Crop 7 — reason
+                        * Crop 8 — reason
+                        * Crop 9 — reason
+                        * Crop 10 — reason
+                      
+
+                        ### Water Management
+                        * Tip 1
+                        * Tip 2
+                        * Tip 3
+                        * Tip 4
+
+                        ### Farmer Livelihood 
+                        * 1 line
+                        * 1 line
+                        * 1 line`
+
                 })
             });
             const aiData = await aiRes.json();
-            autoAIResult.textContent = formatAIResponse(aiData.advice);
+            autoAIResult.innerHTML = formatAIResponse(aiData.advice);
+
         } catch (err) {
             autoAIResult.textContent = "❌ Failed to get AI suggestions: " + err.message;
         }
@@ -705,6 +752,8 @@ async function getPrediction() {
         alert("Prediction failed: " + err.message);
     }
 }
+
+
 
 
 
