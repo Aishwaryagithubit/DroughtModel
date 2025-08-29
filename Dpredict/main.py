@@ -1,68 +1,161 @@
-import streamlit as st
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 import pandas as pd
 import joblib
-import folium
-from streamlit_folium import st_folium
+import os
+import google.generativeai as genai
 
-# Load trained model and encoder
-try:
-    model = joblib.load("model.pkl")
-    encoder = joblib.load("encoder.pkl")
-except:
-    st.error("❌ Model or encoder not found. Please run train.py first.")
-    st.stop()
+# =========================
+# Flask App Setup
+# =========================
+app = Flask(__name__)
+CORS(app)  # Enable CORS for frontend requests
 
-st.set_page_config(page_title="🌾 Drought Prediction Dashboard", layout="wide")
-st.title("🌾 Drought Prediction Dashboard")
+# Load trained ML model
+MODEL_PATH = "models/drought_clf.joblib"
+if not os.path.exists(MODEL_PATH):
+    raise FileNotFoundError("❌ Model file not found! Run train.py first.")
+model = joblib.load(MODEL_PATH)
 
-# Upload CSV
-uploaded_file = st.file_uploader("Upload your dataset (CSV)", type=["csv"])
+# Configure Gemini API (replace value with your real key)
+GEMINI_API_KEY = "AIzaSyDN5pKtY57A9py8kOmBaK5CLWPW-02uG50"
+genai.configure(api_key=GEMINI_API_KEY)
+gemini_model = genai.GenerativeModel("gemini-pro")
 
-if uploaded_file:
-    data = pd.read_csv(uploaded_file)
-    st.write("📊 Dataset Preview:", data.head())
+# Store uploaded data temporarily
+uploaded_data = None
 
-    if "District" not in data.columns:
-        st.error("❌ CSV must contain a 'District' column.")
-    else:
-        # Select District
-        district = st.selectbox("Select District", data["District"].unique())
-        district_encoded = encoder.transform([district])[0]
+# =========================
+# Routes
+# =========================
+@app.route("/upload", methods=["POST"])
+def upload_file():
+    global uploaded_data
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
 
-        # Latest values for prediction
-        latest = data[data["District"] == district].iloc[-1]
-        features = [[
-            latest["Year"],
-            latest["Month"],
-            district_encoded,
-            latest["Rainfall_mm"],
-            latest["SoilMoisture"],
-            latest["Temperature_C"]
-        ]]
+    file = request.files["file"]
+    # Read CSV into pandas DataFrame
+    uploaded_data = pd.read_csv(file)
 
-        # Predict drought risk (rainfall level used as proxy)
-        prediction = model.predict(features)[0]
-        st.metric(label="🌧️ Predicted Rainfall (mm)", value=f"{prediction:.2f}")
+    # Preview first 5 rows
+    preview = uploaded_data.head().to_dict(orient="records")
 
-        # Crop recommendation
-        if prediction < 50:
-            st.warning("⚠️ Low rainfall predicted. Recommended crops: Millet, Sorghum")
-        elif 50 <= prediction < 150:
-            st.info("✅ Moderate rainfall predicted. Recommended crops: Maize, Wheat")
-        else:
-            st.success("🌿 High rainfall predicted. Recommended crops: Rice, Sugarcane")
+    # Collect districts if column exists
+    districts = []
+    if "District" in uploaded_data.columns:
+        districts = sorted(uploaded_data["District"].dropna().unique().tolist())
 
-        # Map visualization
-        st.subheader("🗺️ District Map (Demo)")
-        # For simplicity, randomize coordinates slightly for each district (optional)
-        coords = {
-            "Kathmandu": [27.7, 85.3],
-            "Pokhara": [28.2, 83.9],
-            "Biratnagar": [26.5, 87.3]
-        }
-        lat, lon = coords.get(district, [27.7, 85.3])
-        m = folium.Map(location=[lat, lon], zoom_start=7)
-        folium.Marker([lat, lon], popup=district).add_to(m)
-        st_folium(m, width=700, height=500)
-else:
-    st.info("ℹ️ Please upload a CSV file to start predictions.")
+    return jsonify({"message": "✅ File uploaded successfully", "preview": preview, "districts": districts})
+
+
+@app.route("/predict", methods=["POST"])
+def predict():
+    """
+    Expects JSON body: { "district": "<district-name>" }
+    Returns:
+      {
+        "district": "<district-name>",
+        "prediction": "Drought" | "No Drought",
+        "probability": 0.74   # optional, probability of class 1 (Drought) if model supports predict_proba
+      }
+    """
+    global uploaded_data
+    if uploaded_data is None:
+        return jsonify({"error": "No data uploaded"}), 400
+
+    data = request.json or {}
+    district = data.get("district")
+    if not district:
+        return jsonify({"error": "No district provided"}), 400
+
+    if "District" not in uploaded_data.columns:
+        return jsonify({"error": "CSV has no 'District' column"}), 400
+
+    # Filter the row(s) for the district
+    row = uploaded_data[uploaded_data["District"] == district]
+    if row.empty:
+        return jsonify({"error": f"District '{district}' not found"}), 404
+
+    # Drop target column if exists
+    features = row.drop("Drought", axis=1, errors="ignore")
+
+    # Model prediction
+    try:
+        prediction_raw = model.predict(features)[0]
+    except Exception as e:
+        return jsonify({"error": "Model prediction failed", "details": str(e)}), 500
+
+    label = "No Drought" if int(prediction_raw) == 0 else "Drought"
+
+    # Try to get probability for class '1' if available
+    prob_value = None
+    try:
+        if hasattr(model, "predict_proba"):
+            proba = model.predict_proba(features)[0]  # array like [p_class0, p_class1] or in different order
+            # find index for class '1' if model.classes_ exists
+            if hasattr(model, "classes_"):
+                classes = list(model.classes_)
+                if 1 in classes:
+                    idx = classes.index(1)
+                    prob_value = float(proba[idx])
+                elif '1' in classes:
+                    idx = classes.index('1')
+                    prob_value = float(proba[idx])
+                else:
+                    # Fallback: if classes are [0,1] assume index 1 is drought
+                    if len(proba) >= 2:
+                        prob_value = float(proba[-1])
+            else:
+                # If no classes_ attribute, assume second column is 'Drought'
+                if len(proba) >= 2:
+                    prob_value = float(proba[-1])
+    except Exception:
+        # If probability computation fails, ignore and continue returning label only.
+        prob_value = None
+
+    resp = {"district": district, "prediction": label}
+    if prob_value is not None:
+        # clamp to 0..1 and return
+        prob_value = max(0.0, min(1.0, float(prob_value)))
+        resp["probability"] = prob_value
+
+    return jsonify(resp)
+
+
+@app.route("/recommendations", methods=["GET"])
+def recommendations():
+    tips = [
+        "💧 Use drip irrigation to save water.",
+        "🌱 Plant drought-resistant crops.",
+        "📊 Monitor soil moisture regularly.",
+        "🕰️ Irrigate crops in the early morning or late evening.",
+        "🔄 Practice crop rotation to maintain soil health."
+    ]
+    return jsonify({"recommendations": tips})
+
+
+@app.route("/ai-advice", methods=["POST"])
+def ai_advice():
+    data = request.json or {}
+    user_input = data.get("query", "")
+
+    if not user_input:
+        return jsonify({"error": "No query provided"}), 400
+
+    # Generate response from Gemini
+    try:
+        response = gemini_model.generate_content(
+            f"Give detailed crop recommendation for the following situation:\n{user_input}"
+        )
+        advice_text = getattr(response, "text", None) or response.get("candidates", [{}])[0].get("content", "")
+    except Exception as e:
+        return jsonify({"error": "AI service failed", "details": str(e)}), 500
+
+    return jsonify({"advice": advice_text})
+
+# Run App
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8000, debug=True)
+
+
