@@ -1,74 +1,292 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌾 Drought Prediction Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { font-family: 'Roboto', sans-serif; }
-        .hero { background: linear-gradient(to right, #4ade80, #16a34a); }
-        .btn-primary { background-color: #16a34a; color: white; }
-        .btn-primary:hover { background-color: #15803d; }
-        .iframe-container {
-            position: relative;
-            width: 100%;
-            padding-bottom: 90%; /* Maintain aspect ratio */
-            height: 0;
-            overflow: hidden;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-        }
-        .iframe-container iframe {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Drought Prediction System</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f9ff;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+
+    header {
+      background: #d1b519;
+      color: white;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start; /* keep everything left-aligned */
+      gap: 15px;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 95px;
+    }
+
+    .logo-container img {
+      height: 120px;   /* logo size */
+      width: auto;
+      border-radius: 8px; /* optional */
+    }
+
+    .logo-container h1 {
+      margin: 0;       /* remove extra margin */
+      font-size: 1.8rem;
+      flex: 1;         /* expand heading next to logo */
+    }
+
+    section {
+      margin: 20px auto;
+      max-width: 900px;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      text-align: left;
+    }
+
+    button {
+      background: #06b600;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      margin: 10px 0;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    button:hover {
+      background: #028a2f;
+    }
+
+    pre {
+      text-align: left;
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    select, textarea {
+      margin: 10px 0;
+      padding: 8px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .row {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .col {
+      flex: 1 1 300px;
+    }
+
+    #riskContainer {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #riskChart {
+      max-width: 300px;
+      max-height: 300px;
+    }
+
+    .center {
+      text-align: center;
+    }
+  </style>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="bg-gray-50">
+<body>
+  <header>
+    <div class="logo-container">
+      <img src="grainio.png" alt="grAInio Logo">
+      <h1>🌱 Drought Prediction & Crop Advisory</h1>
+    </div>
+  </header>
 
-    <!-- Hero Section -->
-    <section class="hero text-white py-20 px-4 text-center">
-        <h1 class="text-5xl font-bold mb-4">🌾 Drought Prediction Dashboard</h1>
-        <p class="text-xl mb-6">Predict rainfall, assess drought risk, and get crop recommendations for Nepal’s districts.</p>
-    </section>
+  <section>
+    <h2>📂 Upload CSV Dataset</h2>
+    <input type="file" id="fileInput" accept=".csv"/>
+    <button onclick="uploadFile()">Upload</button>
+    <pre id="uploadResult"></pre>
+  </section>
 
-    <!-- Features Section -->
-    <section class="py-20 px-4 max-w-6xl mx-auto">
-        <h2 class="text-3xl font-bold text-center mb-12">Features</h2>
-        <div class="grid md:grid-cols-3 gap-8 text-center">
-            <div class="bg-white p-6 rounded-xl shadow-lg hover:shadow-2xl transition">
-                <h3 class="text-xl font-semibold mb-3">📊 Dataset Preview</h3>
-                <p>Upload your CSV file and instantly preview the dataset in a clean, interactive table.</p>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-lg hover:shadow-2xl transition">
-                <h3 class="text-xl font-semibold mb-3">🌧️ Drought Prediction</h3>
-                <p>Predict rainfall for your selected district and get instant drought risk assessment.</p>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-lg hover:shadow-2xl transition">
-                <h3 class="text-xl font-semibold mb-3">🌿 Crop Recommendations</h3>
-                <p>Get suggested crops based on predicted rainfall to maximize yield and reduce losses.</p>
-            </div>
+  <section>
+    <h2>📊 Predict Drought</h2>
+    <label for="districtSelect">Select District:</label>
+    <select id="districtSelect"></select><br>
+    <div class="row">
+      <div class="col">
+        <button onclick="getPrediction()">Run Prediction</button>
+        <pre id="predictionResult"></pre>
+      </div>
+      <div class="col center">
+        <div id="riskContainer">
+          <canvas id="riskChart"></canvas>
         </div>
-    </section>
+        <div id="riskText" class="center"></div>
+      </div>
+    </div>
+  </section>
 
-    <!-- Embedded Dashboard -->
-    <section class="py-20 px-4 bg-green-50 max-w-7xl mx-auto">
-        <h2 class="text-3xl font-bold text-center mb-6">🖥️ Interactive Dashboard</h2>
-        <p class="text-center max-w-xl mx-auto mb-6">Upload your CSV and explore predictions, crop recommendations, and district maps directly below.</p>
-        <div class="iframe-container">
-            <iframe src="http://localhost:8501" title="Drought Prediction Dashboard"></iframe>
-        </div>
-    </section>
+  <section>
+    <h2>🤖 AI Crop Advisor</h2>
+    <textarea id="aiQuery" rows="4" placeholder="Enter your crop-related query..."></textarea><br>
+    <button onclick="getAIAdvice()">Ask AI</button>
+    <pre id="aiResult"></pre>
+  </section>
 
-    <!-- Footer -->
-    <footer class="py-8 text-center text-gray-600">
-        &copy; 2025 🌾 Drought Prediction Dashboard. All rights reserved.
-    </footer>
+  <section>
+    <h2>💡 Water Saving Recommendations</h2>
+    <button onclick="getRecommendations()">Get Tips</button>
+    <pre id="recommendationsResult"></pre>
+  </section>
 
+  <script>
+    const API_URL = "http://127.0.0.1:8000";
+    let riskChart = null;
+
+    async function uploadFile() {
+      const fileInput = document.getElementById("fileInput");
+      if (!fileInput.files.length) {
+        alert("Please select a CSV file first!");
+        return;
+      }
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+
+      try {
+        const res = await fetch(`${API_URL}/upload`, {
+          method: "POST",
+          body: formData
+        });
+        const data = await res.json();
+        document.getElementById("uploadResult").textContent = JSON.stringify(data, null, 2);
+
+        if (data.districts && data.districts.length > 0) {
+          const select = document.getElementById("districtSelect");
+          select.innerHTML = data.districts.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join("");
+        } else if (data.preview && data.preview.length > 0 && "District" in data.preview[0]) {
+          const districts = [...new Set(data.preview.map(r => r.District))];
+          document.getElementById("districtSelect").innerHTML = districts.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join("");
+        }
+      } catch (err) {
+        alert("Upload failed: " + err.message);
+      }
+    }
+
+    async function getPrediction() {
+      const district = document.getElementById("districtSelect").value;
+      if (!district) {
+        alert("Please select a district!");
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_URL}/predict`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ district })
+        });
+        const data = await res.json();
+        document.getElementById("predictionResult").textContent = JSON.stringify(data, null, 2);
+
+        if (data.probability !== undefined && data.probability !== null) {
+          updateRiskChart(Number(data.probability));
+        } else {
+          const prob = (data.prediction === "Drought") ? 0.85 : 0.15;
+          updateRiskChart(prob);
+        }
+      } catch (err) {
+        alert("Prediction failed: " + err.message);
+      }
+    }
+
+    function updateRiskChart(probability) {
+      const percent = Math.round(probability * 100);
+      const remainder = 100 - percent;
+      document.getElementById("riskText").innerText = `Drought risk: ${percent}%`;
+
+      const ctx = document.getElementById('riskChart').getContext('2d');
+      if (riskChart) riskChart.destroy();
+
+      riskChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Drought Risk', 'Remaining'],
+          datasets: [{
+            data: [percent, remainder],
+            backgroundColor: [
+              'rgba(255, 99, 132, 0.7)',
+              'rgba(201, 203, 207, 0.5)'
+            ],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, position: 'bottom' },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const label = context.label || '';
+                  const val = context.parsed || 0;
+                  return `${label}: ${val}%`;
+                }
+              }
+            }
+          },
+          cutout: '65%'
+        }
+      });
+    }
+
+    async function getRecommendations() {
+      const res = await fetch(`${API_URL}/recommendations`);
+      const data = await res.json();
+      document.getElementById("recommendationsResult").textContent = JSON.stringify(data, null, 2);
+    }
+
+    async function getAIAdvice() {
+      const query = document.getElementById("aiQuery").value;
+      if (!query) { alert("Please enter a query!"); return; }
+
+      const res = await fetch(`${API_URL}/ai-advice`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query })
+      });
+      const data = await res.json();
+      document.getElementById("aiResult").textContent = data.advice || "No response from AI.";
+    }
+
+    function escapeHtml(text) {
+      if (text === null || text === undefined) return "";
+      return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                         .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+  </script>
 </body>
 </html>
+
