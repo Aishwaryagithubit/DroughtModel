@@ -17,10 +17,12 @@ if not os.path.exists(MODEL_PATH):
     raise FileNotFoundError("❌ Model file not found! Run train.py first.")
 model = joblib.load(MODEL_PATH)
 
+print("Type of loaded object:", type(model))
+
 # Configure Gemini API (replace value with your real key)
 GEMINI_API_KEY = "AIzaSyDN5pKtY57A9py8kOmBaK5CLWPW-02uG50"
 genai.configure(api_key=GEMINI_API_KEY)
-gemini_model = genai.GenerativeModel("gemini-pro")
+gemini_model = genai.GenerativeModel("gemini-2.5-flash")
 
 # Store uploaded data temporarily
 uploaded_data = None
@@ -51,15 +53,6 @@ def upload_file():
 
 @app.route("/predict", methods=["POST"])
 def predict():
-    """
-    Expects JSON body: { "district": "<district-name>" }
-    Returns:
-      {
-        "district": "<district-name>",
-        "prediction": "Drought" | "No Drought",
-        "probability": 0.74   # optional, probability of class 1 (Drought) if model supports predict_proba
-      }
-    """
     global uploaded_data
     if uploaded_data is None:
         return jsonify({"error": "No data uploaded"}), 400
@@ -72,7 +65,6 @@ def predict():
     if "District" not in uploaded_data.columns:
         return jsonify({"error": "CSV has no 'District' column"}), 400
 
-    # Filter the row(s) for the district
     row = uploaded_data[uploaded_data["District"] == district]
     if row.empty:
         return jsonify({"error": f"District '{district}' not found"}), 404
@@ -80,59 +72,35 @@ def predict():
     # Drop target column if exists
     features = row.drop("Drought", axis=1, errors="ignore")
 
-    # Model prediction
+    # Apply same preprocessing as training
+    features = pd.get_dummies(features, drop_first=True)
+
+    # Align with model training columns
+    train_cols = model.feature_names_in_  # sklearn attribute
+    for col in train_cols:
+        if col not in features:
+            features[col] = 0  # add missing column with zeros
+    features = features[train_cols]  # reorder columns exactly like training
+
+    # Predict
     try:
         prediction_raw = model.predict(features)[0]
+        label = "No Drought" if int(prediction_raw) == 0 else "Drought"
     except Exception as e:
         return jsonify({"error": "Model prediction failed", "details": str(e)}), 500
 
-    label = "No Drought" if int(prediction_raw) == 0 else "Drought"
-
-    # Try to get probability for class '1' if available
+    # Optional probability
     prob_value = None
-    try:
-        if hasattr(model, "predict_proba"):
-            proba = model.predict_proba(features)[0]  # array like [p_class0, p_class1] or in different order
-            # find index for class '1' if model.classes_ exists
-            if hasattr(model, "classes_"):
-                classes = list(model.classes_)
-                if 1 in classes:
-                    idx = classes.index(1)
-                    prob_value = float(proba[idx])
-                elif '1' in classes:
-                    idx = classes.index('1')
-                    prob_value = float(proba[idx])
-                else:
-                    # Fallback: if classes are [0,1] assume index 1 is drought
-                    if len(proba) >= 2:
-                        prob_value = float(proba[-1])
-            else:
-                # If no classes_ attribute, assume second column is 'Drought'
-                if len(proba) >= 2:
-                    prob_value = float(proba[-1])
-    except Exception:
-        # If probability computation fails, ignore and continue returning label only.
-        prob_value = None
+    if hasattr(model, "predict_proba"):
+        proba = model.predict_proba(features)[0]
+        prob_value = float(proba[-1])  # probability of drought
 
     resp = {"district": district, "prediction": label}
     if prob_value is not None:
-        # clamp to 0..1 and return
-        prob_value = max(0.0, min(1.0, float(prob_value)))
-        resp["probability"] = prob_value
+        resp["probability"] = round(prob_value, 3)
 
     return jsonify(resp)
 
-
-@app.route("/recommendations", methods=["GET"])
-def recommendations():
-    tips = [
-        "💧 Use drip irrigation to save water.",
-        "🌱 Plant drought-resistant crops.",
-        "📊 Monitor soil moisture regularly.",
-        "🕰️ Irrigate crops in the early morning or late evening.",
-        "🔄 Practice crop rotation to maintain soil health."
-    ]
-    return jsonify({"recommendations": tips})
 
 
 @app.route("/ai-advice", methods=["POST"])
@@ -153,6 +121,19 @@ def ai_advice():
         return jsonify({"error": "AI service failed", "details": str(e)}), 500
 
     return jsonify({"advice": advice_text})
+
+
+@app.route("/recommendations", methods=["GET"])
+def recommendations():
+    tips = [
+        "💧 Use drip irrigation to save water.",
+        "🌱 Plant drought-resistant crops.",
+        "📊 Monitor soil moisture regularly.",
+        "🕰️ Irrigate crops in the early morning or late evening.",
+        "🔄 Practice crop rotation to maintain soil health."
+    ]
+    return jsonify({"recommendations": tips})
+
 
 # Run App
 if __name__ == "__main__":

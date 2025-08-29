@@ -111,7 +111,68 @@
     .center {
       text-align: center;
     }
+
+    /* Toast notifications */
+.toast {
+  visibility: hidden;
+  min-width: 250px;
+  margin-left: -125px;
+  background-color: #333;
+  color: #fff;
+  text-align: center;
+  border-radius: 8px;
+  padding: 16px;
+  position: fixed;
+  z-index: 9999;
+  left: 50%;
+  bottom: 30px;
+  font-size: 16px;
+  opacity: 0;
+  transition: opacity 0.5s, bottom 0.5s;
+}
+
+.toast.show {
+  visibility: visible;
+  opacity: 1;
+  bottom: 50px;
+}
+
+.toast.success { background-color: #28a745; }
+.toast.error   { background-color: #dc3545; }
+.toast.info    { background-color: #17a2b8; }
+
+
+.ai-suggestions {
+  background: #f0f8ff; /* light blue */
+  border-left: 6px solid #06b600; /* green accent */
+  padding: 15px;
+  margin: 10px 0;
+  border-radius: 8px;
+  line-height: 1.5;
+  white-space: normal;
+  max-height: 500px;
+  overflow-y: auto;
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+.ai-suggestions h3 {
+  color: #d1b519;
+  margin-top: 10px;
+}
+.ai-suggestions ul {
+  margin: 5px 0 10px 20px;
+}
+.ai-suggestions li {
+  margin-bottom: 5px;
+}
+
+    
   </style>
+
+
+
+
+
+
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -122,6 +183,8 @@
       <h1>🌱 Drought Prediction & Crop Advisory</h1>
     </div>
   </header>
+
+  <div id="toast" class="toast"></div>
 
   <section>
     <h2>📂 Upload CSV Dataset</h2>
@@ -148,12 +211,23 @@
     </div>
   </section>
 
-  <section>
-    <h2>🤖 AI Crop Advisor</h2>
-    <textarea id="aiQuery" rows="4" placeholder="Enter your crop-related query..."></textarea><br>
-    <button onclick="getAIAdvice()">Ask AI</button>
-    <pre id="aiResult"></pre>
-  </section>
+<section>
+  <h2>🤖 Automatic AI Crop Suggestions</h2>
+  <div id="autoAIResult" class="ai-suggestions">
+    AI suggestions will appear here automatically after prediction.
+  </div>
+</section>
+
+<section>
+  <h2>🤖 Ask AI Your Own Questions</h2>
+  <textarea id="aiQuery" rows="4" placeholder="Enter your crop-related query..."></textarea><br>
+  <button onclick="getAIAdvice()">Ask AI</button>
+  <div id="aiResult" class="ai-suggestions">
+    AI response will appear here.
+  </div>
+</section>
+
+
 
   <section>
     <h2>💡 Water Saving Recommendations</h2>
@@ -161,65 +235,161 @@
     <pre id="recommendationsResult"></pre>
   </section>
 
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   <script>
+
+    function escapeHtml(text) {
+    if (text === null || text === undefined) return "";
+    return String(text)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
     const API_URL = "http://127.0.0.1:8000";
     let riskChart = null;
 
-    async function uploadFile() {
-      const fileInput = document.getElementById("fileInput");
-      if (!fileInput.files.length) {
-        alert("Please select a CSV file first!");
-        return;
-      }
-      const formData = new FormData();
-      formData.append("file", fileInput.files[0]);
+    function showToast(message, type="info", duration=3000) {
+  const toast = document.getElementById("toast");
+  toast.textContent = message;
+  toast.className = `toast show ${type}`;
 
-      try {
-        const res = await fetch(`${API_URL}/upload`, {
-          method: "POST",
-          body: formData
-        });
-        const data = await res.json();
-        document.getElementById("uploadResult").textContent = JSON.stringify(data, null, 2);
+  setTimeout(() => {
+    toast.className = toast.className.replace("show", "");
+  }, duration);
+}
 
-        if (data.districts && data.districts.length > 0) {
-          const select = document.getElementById("districtSelect");
-          select.innerHTML = data.districts.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join("");
-        } else if (data.preview && data.preview.length > 0 && "District" in data.preview[0]) {
-          const districts = [...new Set(data.preview.map(r => r.District))];
-          document.getElementById("districtSelect").innerHTML = districts.map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join("");
-        }
-      } catch (err) {
-        alert("Upload failed: " + err.message);
-      }
+function formatAIResponse(text) {
+  if (!text) return "No advice available.";
+  // Optional: Add emojis or split by double newlines for bullet points
+  const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
+  return lines.map(line => {
+    if (/crop/i.test(line)) return '🌾 ' + line;
+    if (/water/i.test(line)) return '💧 ' + line;
+    if (/soil/i.test(line)) return '🌱 ' + line;
+    if (/risk|warning/i.test(line)) return '⚠️ ' + line;
+    return line;
+  }).join('\n');
+}
+
+async function uploadFile() {
+  const fileInput = document.getElementById("fileInput");
+  if (!fileInput.files.length) {
+    showToast("Please select a CSV file first!", "error");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("file", fileInput.files[0]);
+
+  try {
+    const res = await fetch(`${API_URL}/upload`, { method: "POST", body: formData });
+    const data = await res.json();
+
+    document.getElementById("uploadResult").textContent = "✅ Dataset uploaded successfully!";
+    showToast("Dataset uploaded successfully!", "success");
+
+    if (data.districts && data.districts.length > 0) {
+      const select = document.getElementById("districtSelect");
+      select.innerHTML = data.districts
+        .map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`)
+        .join("");
+    }
+  } catch (err) {
+    showToast("Upload failed: " + err.message, "error");
+  }
+}
+
+
+
+
+
+
+  // Automatic AI Suggestions after prediction
+async function getPrediction() {
+  const district = document.getElementById("districtSelect").value;
+  if (!district) { alert("Please select a district!"); return; }
+
+  try {
+    const res = await fetch(`${API_URL}/predict`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ district })
+    });
+    const data = await res.json();
+
+    // Show prediction
+    document.getElementById("predictionResult").textContent = 
+      `🌾 District: ${district}\n⚠️ Drought Status: ${data.drought_status || data.prediction}\n💧 Probability: ${data.probability || "N/A"}`;
+
+    if (data.probability !== undefined) updateRiskChart(Number(data.probability));
+
+    // Automatic AI suggestions
+    const autoAIResult = document.getElementById("autoAIResult");
+    autoAIResult.textContent = "⏳ Generating AI suggestions, please wait...";
+    try {
+      const aiRes = await fetch(`${API_URL}/ai-advice`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: `District: ${district}, Prediction: ${data.drought_status || data.prediction}. 
+                  Provide concise crop recommendations, water-saving practices, and seasonal advice in bullet points for farmers.`
+        })
+      });
+      const aiData = await aiRes.json();
+      autoAIResult.textContent = formatAIResponse(aiData.advice);
+    } catch (err) {
+      autoAIResult.textContent = "❌ Failed to get AI suggestions: " + err.message;
     }
 
-    async function getPrediction() {
-      const district = document.getElementById("districtSelect").value;
-      if (!district) {
-        alert("Please select a district!");
-        return;
-      }
+  } catch (err) {
+    alert("Prediction failed: " + err.message);
+  }
+}
 
-      try {
-        const res = await fetch(`${API_URL}/predict`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ district })
-        });
-        const data = await res.json();
-        document.getElementById("predictionResult").textContent = JSON.stringify(data, null, 2);
 
-        if (data.probability !== undefined && data.probability !== null) {
-          updateRiskChart(Number(data.probability));
-        } else {
-          const prob = (data.prediction === "Drought") ? 0.85 : 0.15;
-          updateRiskChart(prob);
-        }
-      } catch (err) {
-        alert("Prediction failed: " + err.message);
-      }
-    }
+// Manual AI query with loading spinner
+async function getAIAdvice() {
+  const query = document.getElementById("aiQuery").value;
+  if (!query) { alert("Please enter a query!"); return; }
+
+  const aiResult = document.getElementById("aiResult");
+  aiResult.textContent = "⏳ Generating AI response, please wait...";
+
+  try {
+    const res = await fetch(`${API_URL}/ai-advice`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query })
+    });
+    const data = await res.json();
+    aiResult.textContent = formatAIResponse(data.advice);
+  } catch (err) {
+    aiResult.textContent = "❌ Failed to get AI response: " + err.message;
+  }
+}
+
+
+
+
+
+
+
 
     function updateRiskChart(probability) {
       const percent = Math.round(probability * 100);
@@ -263,29 +433,40 @@
     }
 
     async function getRecommendations() {
-      const res = await fetch(`${API_URL}/recommendations`);
-      const data = await res.json();
-      document.getElementById("recommendationsResult").textContent = JSON.stringify(data, null, 2);
-    }
+  const recResult = document.getElementById("recommendationsResult");
+  recResult.textContent = "⏳ Fetching water-saving tips...";
 
-    async function getAIAdvice() {
-      const query = document.getElementById("aiQuery").value;
-      if (!query) { alert("Please enter a query!"); return; }
+  try {
+    const res = await fetch(`${API_URL}/recommendations`);
+    if (!res.ok) throw new Error("Network response was not ok");
 
-      const res = await fetch(`${API_URL}/ai-advice`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query })
-      });
-      const data = await res.json();
-      document.getElementById("aiResult").textContent = data.advice || "No response from AI.";
-    }
+    const data = await res.json();
+    recResult.textContent = (data.recommendations || []).join("\n");
+  } catch (err) {
+    recResult.textContent = "❌ Failed to fetch recommendations: " + err.message;
+  }
+}
 
-    function escapeHtml(text) {
-      if (text === null || text === undefined) return "";
-      return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-                         .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-    }
+    // async function getAIAdvice() {
+    //   const query = document.getElementById("aiQuery").value;
+    //   if (!query) { alert("Please enter a query!"); return; }
+
+    //   const res = await fetch(`${API_URL}/ai-advice`, {
+    //     method: "POST",
+    //     headers: { "Content-Type": "application/json" },
+    //     body: JSON.stringify({ query })
+    //   });
+    //   const data = await res.json();
+    //   document.getElementById("aiResult").textContent = data.advice || "No response from AI.";
+    // }
+
+    // function escapeHtml(text) {
+    //   if (text === null || text === undefined) return "";
+    //   return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    //                      .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    // }
+
+
   </script>
 </body>
 </html>
