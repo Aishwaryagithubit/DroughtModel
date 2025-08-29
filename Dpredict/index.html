@@ -169,6 +169,11 @@
 
     
   </style>
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 
 
@@ -212,6 +217,12 @@
       </div>
     </div>
   </section>
+
+  <section>
+  <h2>🗺️ Drought Risk Map</h2>
+  <div id="map" style="height: 400px; width: 100%; border-radius: 12px; margin-top: 10px;"></div>
+</section>
+
 
   
 
@@ -258,8 +269,100 @@
 
 
   <script>
+
+    
 const API_URL = "http://127.0.0.1:8000";
 let riskChart = null;
+
+const districts = {
+  "Banke": { lat: 28.1609, lng: 81.9292 },
+  "Bara": { lat: 27.1341, lng: 85.0649 },
+  "Bardiya": { lat: 28.3006, lng: 81.3536 },
+  "Chitwan": { lat: 27.5291, lng: 84.3542 },
+  "Dang": { lat: 28.1114, lng: 82.2943 },
+  "Dhanusha": { lat: 26.8350, lng: 86.0122 },
+  "Jhapa": { lat: 26.6470, lng: 87.8905 },
+  "Kailali": { lat: 28.8314, lng: 80.8987 },
+  "Kanchanpur": { lat: 28.9840, lng: 80.2120 },
+  "Kapilvastu": { lat: 27.5120, lng: 83.2740 },
+  "Mahottari": { lat: 26.6110, lng: 85.9300 },
+  "Morang": { lat: 26.7167, lng: 87.2833 },
+  "Nawalparasi": { lat: 27.5333, lng: 83.5333 },
+  "Parsa": { lat: 27.0333, lng: 84.0167 },
+  "Rautahat": { lat: 27.3333, lng: 85.4167 },
+  "Rupandehi": { lat: 27.6667, lng: 83.4167 },
+  "Saptari": { lat: 26.6167, lng: 86.6167 },
+  "Sarlahi": { lat: 26.8667, lng: 85.9833 },
+  "Siraha": { lat: 26.6667, lng: 86.0000 },
+  "Sunsari": { lat: 26.6667, lng: 87.2500 }
+};
+
+
+let highlightedMarker = null;
+
+function highlightDistrict(districtName, riskLevel="Drought") {
+    const coords = districts[districtName];
+    if (!coords) return;
+
+    // Remove previous marker
+    if (highlightedMarker) {
+        map.removeLayer(highlightedMarker);
+    }
+
+    // Color based on risk
+    const color = (riskLevel === "Drought") ? "red" : "green";
+
+    // Draw circle marker
+    highlightedMarker = L.circle([coords.lat, coords.lng], {
+        color: color,
+        fillColor: color,
+        fillOpacity: 0.5,
+        radius: 20000 // in meters
+    }).addTo(map)
+      .bindPopup(`<b>${districtName}</b><br>Risk Level: ${riskLevel}`);
+
+    // Zoom to district
+    map.setView([coords.lat, coords.lng], 8);
+}
+
+
+
+
+// Initialize map
+let map = L.map('map').setView([28.3949, 84.1240], 7);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+
+
+// Store current district marker
+let currentMarker = null;
+
+// Function to show district on map
+function showDistrictOnMap(districtName, lat, lng, riskLevel, probability) {
+    // Remove previous marker
+    if (currentMarker) {
+        map.removeLayer(currentMarker);
+    }
+
+    // Choose color based on risk
+    const color = riskLevel === "Drought" ? "red" : "green";
+
+    // Create new marker
+    currentMarker = L.circleMarker([lat, lng], {
+        radius: 12,
+        color: color,
+        fillColor: color,
+        fillOpacity: 0.6
+    }).addTo(map)
+      .bindPopup(`<b>${districtName}</b><br>Risk: ${riskLevel}<br>Probability: ${(probability*100).toFixed(1)}%`);
+
+    // Zoom to district
+    map.setView([lat, lng], 9);
+}
+
+
+
 
 
 
@@ -570,6 +673,9 @@ async function getPrediction() {
 
         if (!isNaN(probability)) updateRiskChart(probability);
 
+        highlightDistrict(district, (probability >= 0.5) ? "Drought" : "Safe");
+
+
         // Show alert if probability is high
         if (probability >= 0.5) {
             const crops = data.recommended_crops || "Millet, Sorghum";
@@ -599,6 +705,8 @@ async function getPrediction() {
         alert("Prediction failed: " + err.message);
     }
 }
+
+
 
 </script>
 
