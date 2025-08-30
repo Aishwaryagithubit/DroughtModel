@@ -1,86 +1,72 @@
-🌾 Drought Prediction & Water Management Web App
+🌱 grAInio – Drought Prediction & Crop Advisory System
 
-A Flask-based web application that leverages AI (Google Gemini) and climate data to predict drought risks, recommend crops, analyze water demand vs. supply, and promote sustainable agriculture practices.
+Tagline: **Because Every Grain Matters**
 
-This project was built as a portfolio piece to demonstrate expertise in data science, AI integration, and full-stack web development.
+grAInio is a climate tech solution that predicts drought risk at the district level, recommends AI suggested climate resilient crops, and provides actionable water saving strategies.
+Built for climate change resilience, grAInio empowers governments, farmers, and organizations to make data-driven decisions for sustainable agriculture.
 
 🚀 Features
-🔍 Drought Risk Prediction
 
-Upload climate dataset (CSV) containing rainfall, soil moisture, temperature, humidity, NDVI, groundwater level, etc.
+📂 CSV Upload – Upload district-level climate data.
 
-Predicts drought risk levels (Low, Medium, High) using climate features.
+📊 Drought Risk Dashboard – Visualize high/medium/low drought risks with intuitive charts.
 
-AI-generated crop recommendations and irrigation scheduling via Google Gemini API.
+🏞 District-Level Insights – Select a district to view tailored predictions.
 
-Provides alerts when high drought risk is detected.
+🌱 AI Crop Recommendations – Suggests drought-resilient crops suited to each risk level.
 
-💧 Water Demand & Supply Analysis
+💧 Water-Saving Tips – Personalized conservation strategies to mitigate drought impact.
 
-Input past year’s water demand and supply.
+🔔 Early Warning Alerts (Future Roadmap) – Notify policymakers and farmers with actionable alerts.
 
-System analyzes deficit/surplus conditions.
 
-Visual chart comparison (matplotlib).
+🏗 Tech Stack
 
-Awareness section with AI-generated water-saving tips.
+Backend: Python (Flask)
 
-🌍 Map Visualization
+Frontend: HTML, CSS, JavaScript
 
-Interactive map (matplotlib-based) of Nepal districts.
+Data: Pandas, CSV input files
 
-Color-coded drought risks:
+Visualization: Plotly Express
 
-🟢 Low Risk
+AI/ML: Trained model (model.pkl) for drought risk prediction
 
-🟠 Medium Risk
+📂 Project Structure
+grAInio/
+│── app.py                # Flask backend
+│── templates/
+│    └── index.html        # UI layout
+│── static/
+│    └── style.css         # Custom styling
+│── model.pkl              # Trained ML model
+│── sample_data.csv        # Example input file
+│── README.md              # Project documentation
 
-🔴 High Risk
 
-🌱 Crop Stock & Sales Tracker
+Impact
 
-Manage crop stock (e.g., Rice 100kg).
+Helps governments track climate vulnerability at district level.
 
-Record sales and update available inventory.
+Empowers farmers with AI crop choices and sustainable practices.
 
-Dashboard-style display of crop availability.
+Enables early action instead of late crisis response.
 
-📡 AI-Powered Insights
+📌 Roadmap
 
-Integrated with Google Gemini AI for:
+✅ CSV based drought prediction
 
-Irrigation scheduling.
+✅ District wise AI crop recommendation
 
-Awareness tips (water conservation, sustainable farming).
+🔲 Automated alerts for high risk districts
 
-Contextual guidance for farmers.
+🔲 Integration with real time satellite data 
 
-🛠️ Tech Stack
+🔲 Policy dashboards for governments & NGOs
 
-Backend: Flask (Python)
 
-Frontend: HTML, Bootstrap (basic templates)
+👩‍💻 Team
 
-Data Processing: Pandas, NumPy
+Built for the AI x Climate Action Hackathon 2025
 
-Visualization: Matplotlib
-
-AI Integration: Google Gemini (google-generativeai SDK)
-
-Other Tools: Pydantic (v1), Jinja2
-
-📊 Usage Flow
-
-Upload Dataset – Choose Drought_Dataset.csv.
-
-Select District & Month – Example: Jhapa, Jan 2000.
-
-View Predictions – Drought risk, crop suggestions, irrigation schedule.
-
-Enter Water Demand/Supply – Get deficit/surplus insights.
-
-Check Awareness Tips – AI-powered water-saving practices.
-
-Track Crop Stock & Sales – Add stock, record sales, monitor inventory.
-
-View Map Visualization – Risk heatmap across Nepal districts.
+Aishwarya Sah and Prabesh Marasini – AI/ML & Backend,Frontend, Data Integration
