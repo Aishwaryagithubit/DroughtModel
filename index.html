@@ -165,6 +165,20 @@
   margin-bottom: 5px;
 }
 
+.dataset-files button {
+  background: #11ad06;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  margin: 5px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.dataset-files button:hover {
+  background: #028a2f;
+}
 
 
     
@@ -192,6 +206,16 @@
   </header>
 
   <div id="toast" class="toast"></div>
+
+  <section>
+  <h2>📥 Download CSV Dataset</h2>
+  <p>Download the full dataset for drought predictions:</p>
+  <div class="dataset-files">
+    <a href="https://drive.google.com/file/d/1IfpY32JHAsQqK1ah0ITwXdxM4KMAky-s/view?usp=sharing" download>
+      <button>Download Dataset </button>
+    </a>
+  </div>
+</section>
 
   <section>
     <h2>📂 Upload CSV Dataset</h2>
@@ -772,7 +796,6 @@ async function getPrediction() {
         alert("Prediction failed: " + err.message);
     }
 }
-
 
 
 </script>
