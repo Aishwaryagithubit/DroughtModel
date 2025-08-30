@@ -229,7 +229,7 @@
   
 
 <section>
-  <h2>🤖 Automatic AI Crop Suggestions</h2>
+  <h2>🤖 Automatic AI  Suggestions</h2>
   <div id="autoAIResult" class="ai-suggestions">
     AI suggestions will appear here automatically after prediction.
   </div>
@@ -237,7 +237,7 @@
 
 <section>
   <h2>🤖 Ask AI Your Own Questions</h2>
-  <textarea id="aiQuery" rows="4" placeholder="Enter your crop-related query..."></textarea><br>
+  <textarea id="aiQuery" rows="4" placeholder="Enter your thoughts..."></textarea><br>
   <button onclick="getAIAdvice()">Ask AI</button>
   <div id="aiResult" class="ai-suggestions">
     AI response will appear here.
@@ -246,11 +246,7 @@
 
 
 
-  <section>
-    <h2>💡 Water Saving Recommendations</h2>
-    <button onclick="getRecommendations()">Get Tips</button>
-    <pre id="recommendationsResult"></pre>
-  </section>
+ 
 
 
 <div id="notificationIcon" style=" position: fixed; bottom: 20px; right: 20px; width: 50px; height: 50px; background: #ffcc00; border-radius: 50%; box-shadow: 0 2px 6px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10000; font-size: 24px; "> 💬 </div> <!-- Notification Box --> <div id="notificationContainer" style=" position: fixed; bottom: 80px; right: 20px; width: 300px; max-height: 400px; overflow-y: auto; z-index: 9999; display: none; /* initially hidden */ flex-direction: column-reverse; gap: 10px; background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); padding: 10px; "></div>
@@ -333,6 +329,24 @@ let map = L.map('map').setView([28.3949, 84.1240], 7);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap contributors'
 }).addTo(map);
+
+
+let geojsonLayer = null;
+
+fetch("nepal_districts.geojson")
+  .then(res => res.json())
+  .then(data => {
+      geojsonLayer = L.geoJSON(data, {
+          style: {
+              color: "#333",
+              weight: 1,
+              fillColor: "#ccc",
+              fillOpacity: 0.3
+          }
+      }).addTo(map);
+  });
+
+
 
 // Store current district marker
 let currentMarker = null;
@@ -656,6 +670,44 @@ function showDroughtAlert(district, crops, actions) {
 
 
 
+let highlightLayer = null;
+
+function highlightDistrictGeo(districtName) {
+    if (!geojsonLayer) return;
+
+    // Remove previous highlight
+    if (highlightLayer) map.removeLayer(highlightLayer);
+
+    // Filter GeoJSON to match district
+    highlightLayer = L.geoJSON(geojsonLayer.toGeoJSON(), {
+        filter: feature => {
+            // Check all possible property names
+            const name = feature.properties.DISTRICT || feature.properties.District || feature.properties.NAME || "";
+            return name.trim().toLowerCase() === districtName.trim().toLowerCase();
+        },
+        style: {
+            color: "#ff0000",
+            weight: 2,
+            fillColor: "#ff6666",
+            fillOpacity: 0.5
+        }
+    }).addTo(map);
+
+    // Zoom to the highlighted district
+    if (highlightLayer && highlightLayer.getBounds) {
+        const bounds = highlightLayer.getBounds();
+        if (bounds.isValid && bounds.isValid()) {
+            map.fitBounds(bounds, { padding: [20, 20] });
+        } else if (!bounds.isValid && bounds._northEast) { // fallback
+            map.fitBounds(bounds, { padding: [20, 20] });
+        }
+    }
+}
+
+
+
+
+
 
 
 
@@ -683,6 +735,10 @@ async function getPrediction() {
         if (!isNaN(probability)) updateRiskChart(probability);
 
         highlightDistrict(district, (probability >= 0.5) ? "Drought" : "Safe");
+        // highlightDistrict("Kapilvastu");
+        highlightDistrictGeo(district); // instead of highlightDistrict("Kapilvastu")
+
+
 
 
         // Show alert if probability is high
@@ -700,44 +756,8 @@ async function getPrediction() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    query: `
-                    You are an agricultural AI assistant. Based on the prediction results below, generate suggestions.
-
-                        ⚠️ Focus on crops more than anything else(only crops grown in Nepal).
-                        District: ${district}, Prediction: ${data.drought_status || data.prediction}
-                        
-              
-
-                        ### Requirements:
-                        
-                        - Give at least 5 crop suggestions (with 1 short reason each).
-                        - Keep water management advice very short (max 4 points).
-                        - Keep farmer livelihood advice extremely brief (3 line).
-
-                        Format clearly:
-
-                        ### Crop Suggestions
-                        * Crop 1 — reason
-                        * Crop 2 — reason
-                        * Crop 3 — reason
-                        * Crop 4 — reason
-                        * Crop 6 — reason
-                        * Crop 7 — reason
-                        * Crop 8 — reason
-                        * Crop 9 — reason
-                        * Crop 10 — reason
-                      
-
-                        ### Water Management
-                        * Tip 1
-                        * Tip 2
-                        * Tip 3
-                        * Tip 4
-
-                        ### Farmer Livelihood 
-                        * 1 line
-                        * 1 line
-                        * 1 line`
+                   query: `District: ${district}, Prediction: ${data.drought_status || data.prediction}. 
+                  Provide concise crop recommendations, water-saving practices, and seasonal advice in bullet points for farmers.`
 
                 })
             });
